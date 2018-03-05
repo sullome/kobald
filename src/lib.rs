@@ -13,7 +13,7 @@ mod map {
 
     const CARDS_MAP_SIDE:     usize = 3;
 
-    const DB_FILENAME: &'static str             = "data";
+    const DB_FILENAME: &'static str             = "data.sqlite3";
     const DB_TABLE_W_CARDS: &'static str        = "cards";
     const DB_TABLE_W_CARDS_COLUMN: &'static str = "tiles";
 
