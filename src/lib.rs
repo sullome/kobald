@@ -1,7 +1,7 @@
 extern crate rusqlite;
 extern crate rand;
 
-mod map {
+pub mod map {
     use std::collections::HashMap;
     use std::path::PathBuf;
     use rand::{Rng, StdRng};
@@ -19,7 +19,7 @@ mod map {
 
     //{{{ Tile
     #[derive(Copy,Clone)]
-    enum TileType {
+    pub enum TileType {
         Start,
         Floor,
         Wall,
@@ -28,8 +28,8 @@ mod map {
     }
 
     #[derive(Clone)]
-    struct Tile {
-        ttype: TileType,
+    pub struct Tile {
+        pub ttype: TileType,
         passable: bool,
 
         // Name of the icon
@@ -65,7 +65,7 @@ mod map {
                     ;
                     for _x in 0..card_side {
                         // Columns
-                        let mut column: Vec<char> = vec!['z'; card_side];
+                        let column: Vec<char> = vec!['z'; card_side];
                         tiles_chars.push(column);
                     }
                     for (y, line) in tiles_string.lines().enumerate() {
@@ -341,8 +341,8 @@ mod map {
         // Feeding actual tiles
         for (field_x, field_column) in cards_field.iter().enumerate() {
             for (field_y, field) in field_column.iter().enumerate() {
-                let offset_x: usize = field_x * field_side;
-                let offset_y: usize = field_y * field_side;
+                let offset_x: usize = field_x * card_side;
+                let offset_y: usize = field_y * card_side;
 
                 for (x, card_column) in field.tiles.iter().enumerate() {
                     for (y, tile) in card_column.iter().enumerate() {
@@ -354,6 +354,18 @@ mod map {
         map
     }
     //}}}
+
+    pub fn init
+        () -> Vec<Vec<Tile>>
+    {
+        let (mut fields, mut ends, dead_ends, corner) = init_cards().expect(
+            "Failed to init cards."
+        );
+        let cards_field = generate_field(
+            &mut fields, &mut ends, &dead_ends, &corner
+        );
+        generate_map(&cards_field)
+    }
 }
 
 #[cfg(test)]
