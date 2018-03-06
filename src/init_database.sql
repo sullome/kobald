@@ -1,9 +1,14 @@
 --{{{ Tables
 create table cards (ctype TEXT, tiles BLOB);
 create table tile_images(name TEXT, image BLOB);
+create table game_settings(setting TEXT, value NUMERIC);
 --}}}
 
 --{{{ Inserts
+insert into game_settings(setting, value)
+    ('visible_distance', 6 ),
+    ('resource_max',     10),
+    ('resource_start',   3);
 insert into cards(ctype, tiles) values
     ('field',  readfile('data/cards/field1')         ),
     ('field',  readfile('data/cards/field2')         ),
