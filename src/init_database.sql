@@ -1,14 +1,18 @@
 --{{{ Tables
 create table cards (ctype TEXT, tiles BLOB);
-create table tile_images(name TEXT, image BLOB);
+create table images(name TEXT, image BLOB);
 create table game_settings(setting TEXT, value NUMERIC);
 --}}}
 
 --{{{ Inserts
-insert into game_settings(setting, value)
+insert into game_settings(setting, value) values
     ('visible_distance', 6 ),
     ('resource_max',     10),
     ('resource_start',   3);
+insert into images(name, image) values
+    ('wall.png',   readfile('data/tiles/wall.png')  ),
+    ('floor.png',  readfile('data/tiles/floor.png') ),
+    ('player.png', readfile('data/icons/player.png'));
 insert into cards(ctype, tiles) values
     ('field',  readfile('data/cards/field1')         ),
     ('field',  readfile('data/cards/field2')         ),

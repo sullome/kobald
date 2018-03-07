@@ -1,7 +1,8 @@
 extern crate rusqlite;
 extern crate rand;
+extern crate sdl2;
 
-const DB_FILENAME: &'static str = "data.sqlite3";
+pub const DB_FILENAME: &'static str = "data.sqlite3";
 
 pub mod creature;
 pub mod map;

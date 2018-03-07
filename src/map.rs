@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+
 use rand::{Rng, StdRng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
+use sdl2::render::{Canvas,Texture,RenderTarget};
+use sdl2::rect::Rect;
 
 const CARDS_FIELDS_COUNT: usize = 18;
 const CARDS_ENDS_COUNT:   usize = 6;
@@ -27,6 +30,7 @@ pub enum TileType {
 pub struct Tile {
     pub ttype: TileType,
     passable: bool,
+    visible: bool,
 
     // Name of the icon
     icon: String
@@ -84,31 +88,37 @@ impl Card {
                             '#' => Tile {
                                 ttype: TileType::Wall,
                                 passable: false,
+                                visible: false,
                                 icon: String::from("wall.png"),
                             },
                             '_' => Tile {
                                 ttype: TileType::Floor,
                                 passable: true,
+                                visible: false,
                                 icon: String::from("floor.png"),
                             },
                             's' => Tile {
                                 ttype: TileType::Start,
                                 passable: true,
+                                visible: false,
                                 icon: String::from("floor.png"),
                             },
                             'x' => Tile {
                                 ttype: TileType::Obstacle,
                                 passable: false,
+                                visible: false,
                                 icon: String::from("floor.png"),
                             },
                             '?' => Tile {
                                 ttype: TileType::Curiousity,
                                 passable: true,
+                                visible: false,
                                 icon: String::from("floor.png"),
                             },
                             _   => Tile {
                                 ttype: TileType::Floor,
                                 passable: true,
+                                visible: false,
                                 icon: String::from("floor.png"),
                             },
                         };
@@ -121,6 +131,50 @@ impl Card {
             }
         } else {
             Err(())
+        }
+    }
+}
+//}}}
+
+//{{{ Map
+pub struct Map {
+    // Row of columns!!!
+    // tiles[x][y]
+    pub tiles: Vec<Vec<Tile>>
+}
+impl Map {
+    pub fn init () -> Map {
+        let (mut fields, mut ends, dead_ends, corner) = init_cards().expect(
+            "Failed to init cards."
+        );
+        let cards_field = generate_field(
+            &mut fields, &mut ends, &dead_ends, &corner
+        );
+        Map {
+            tiles: generate_map(&cards_field)
+        }
+    }
+
+    pub fn update(&mut self) {
+    }
+
+    pub fn draw<T: RenderTarget>
+        (&self, textures: &HashMap<String, Texture>, canvas: &mut Canvas<T>)
+    {
+        let texture_side: u32 = textures["wall.png"].query().width;
+        let mut place: Rect = Rect::new(0, 0, texture_side, texture_side);
+
+        for (y, column) in self.tiles.iter().enumerate() {
+            for (x, tile) in column.iter().enumerate() {
+                //if tile.visible {
+                    let texture: &Texture = &textures[&tile.icon];
+                    place.set_x(((x as u32) * texture_side) as i32);
+                    place.set_y(((y as u32) * texture_side) as i32);
+
+                    canvas.copy(texture, None, place)
+                        .expect("Texture rendering error!");
+                //}
+            }
         }
     }
 }
@@ -316,6 +370,7 @@ fn generate_map //{{{
     let tile_wall = Tile {
         ttype: TileType::Wall,
         passable: false,
+        visible: false,
         icon: String::from("wall.png"),
     };
 
@@ -350,15 +405,3 @@ fn generate_map //{{{
     map
 }
 //}}}
-
-pub fn init
-    () -> Vec<Vec<Tile>>
-{
-    let (mut fields, mut ends, dead_ends, corner) = init_cards().expect(
-        "Failed to init cards."
-    );
-    let cards_field = generate_field(
-        &mut fields, &mut ends, &dead_ends, &corner
-    );
-    generate_map(&cards_field)
-}
