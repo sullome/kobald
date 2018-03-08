@@ -15,6 +15,7 @@ use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read; // For Blob
 
 use sevend::map::Map;
+use sevend::creature::Player;
 
 use sevend::DB_FILENAME;
 const DB_IMAGES_TABLE:  &'static str = "images";
@@ -86,6 +87,7 @@ fn main() {
     // Init game variables
     let mut map = Map::init();
     let map_side = map.tiles[0].len();
+    let mut player = Player::init(map.start.0, map.start.1);
 
     // Init SDL2 and it's subsystems
     let sdl_context = sdl2::init()
@@ -124,22 +126,20 @@ fn main() {
                     println!("QUIT");
                     break 'running;
                 },
-                _ => ()
+                e => player.update(&e, &map)
             }
         }
 
         // Update game
-        map.update();
+        map.update(&player);
 
         // Start drawing
-        println!("Clear canvas");
         canvas.clear();
 
-        println!("Draw map");
         map.draw(&textures, &mut canvas);
+        player.draw(&textures, &mut canvas);
 
         // Stop drawing
-        println!("Present canvas");
         canvas.present();
 
         ::std::thread::sleep(Duration::from_millis(16));

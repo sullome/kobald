@@ -7,6 +7,8 @@ use std::io::Read;
 use sdl2::render::{Canvas,Texture,RenderTarget};
 use sdl2::rect::Rect;
 
+use super::creature::Player;
+
 const CARDS_FIELDS_COUNT: usize = 18;
 const CARDS_ENDS_COUNT:   usize = 6;
 
@@ -29,11 +31,118 @@ pub enum TileType {
 #[derive(Clone)]
 pub struct Tile {
     pub ttype: TileType,
-    passable: bool,
+    pub passable: bool,
     visible: bool,
+    curiosity_checked: bool,
+    search_text: String,
 
     // Name of the icon
     icon: String
+}
+impl Tile {
+    pub fn init<T: Rng>
+    (
+        tile_char: &char,
+        card_id: &i64,
+        db_conn: &Connection,
+        rng: &mut T
+    )
+    -> Tile
+    {
+        let tile_type = match *tile_char {
+            '#' => TileType::Wall,
+            '_' => TileType::Floor,
+            's' => TileType::Start,
+            'x' => TileType::Obstacle,
+            '?' => TileType::Curiousity,
+            _   => TileType::Floor,
+        };
+        let tile_image = String::from(match tile_type {
+            TileType::Wall => "wall.png",
+            _ => "floor.png",
+        });
+        let tile_pass = match tile_type {
+            TileType::Wall | TileType::Obstacle => false,
+            _ => true,
+        };
+
+        let query: String = match tile_type {
+            TileType::Curiousity => String::from(
+                "select message from messages where situation = ?;"
+            ),
+            _ => String::from("select message ")
+                + "from messages "
+                + "where situation in ("
+                +     "select ctype "
+                +     "from " + DB_TABLE_W_CARDS + " "
+                +     "where rowid = ?"
+                + ");"
+                ,
+        };
+        let mut statement = db_conn.prepare(&query).unwrap();
+
+        let messages: Vec<String> = match tile_type {
+            TileType::Curiousity => statement.query_map(
+                &[card_id],
+                |row| {
+                    let s:String = row.get(0);
+                    s
+                }
+            ).unwrap().map(
+                |row| row.unwrap()
+            ).collect(),
+            TileType::Wall => statement.query_map(
+                &[&"wall"],
+                |row| {
+                    let s:String = row.get(0);
+                    s
+                }
+            ).unwrap().map(
+                |row| row.unwrap()
+            ).collect(),
+            TileType::Floor => statement.query_map(
+                &[&"floor"],
+                |row| {
+                    let s:String = row.get(0);
+                    s
+                }
+            ).unwrap().map(
+                |row| row.unwrap()
+            ).collect(),
+            TileType::Start => statement.query_map(
+                &[&"start"],
+                |row| {
+                    let s:String = row.get(0);
+                    s
+                }
+            ).unwrap().map(
+                |row| row.unwrap()
+            ).collect(),
+            TileType::Obstacle => statement.query_map(
+                &[&"obstacle"],
+                |row| {
+                    let s:String = row.get(0);
+                    s
+                }
+            ).unwrap().map(
+                |row| row.unwrap()
+            ).collect()
+        };
+
+        let message: String = match rng.choose(&messages){
+            Some(m) => m.clone(),
+            None    => String::from("")
+        };
+
+        Tile {
+            ttype: tile_type,
+            passable: tile_pass,
+            visible: false,
+            curiosity_checked: false,
+            search_text: message,
+            icon: tile_image
+        }
+    }
 }
 //}}}
 
@@ -74,6 +183,12 @@ impl Card {
                     }
                 }
 
+                let mut random_number_generator = StdRng::new()
+                    .expect(
+                        "Failed to read randomness from operating system."
+                    )
+                ;
+
                 let mut card = Card {
                     // Row of columns
                     tiles: Vec::with_capacity(card_side),
@@ -84,44 +199,12 @@ impl Card {
 
                     for y in 0..card_side {
                         let tile_char: char = tiles_chars[x][y];
-                        let tile: Tile = match tile_char {
-                            '#' => Tile {
-                                ttype: TileType::Wall,
-                                passable: false,
-                                visible: false,
-                                icon: String::from("wall.png"),
-                            },
-                            '_' => Tile {
-                                ttype: TileType::Floor,
-                                passable: true,
-                                visible: false,
-                                icon: String::from("floor.png"),
-                            },
-                            's' => Tile {
-                                ttype: TileType::Start,
-                                passable: true,
-                                visible: false,
-                                icon: String::from("floor.png"),
-                            },
-                            'x' => Tile {
-                                ttype: TileType::Obstacle,
-                                passable: false,
-                                visible: false,
-                                icon: String::from("floor.png"),
-                            },
-                            '?' => Tile {
-                                ttype: TileType::Curiousity,
-                                passable: true,
-                                visible: false,
-                                icon: String::from("floor.png"),
-                            },
-                            _   => Tile {
-                                ttype: TileType::Floor,
-                                passable: true,
-                                visible: false,
-                                icon: String::from("floor.png"),
-                            },
-                        };
+                        let tile: Tile = Tile::init(
+                            &tile_char,
+                            &id,
+                            db_conn,
+                            &mut random_number_generator
+                        );
                         card.tiles[x].push(tile);
                     }
                 }
@@ -140,7 +223,8 @@ impl Card {
 pub struct Map {
     // Row of columns!!!
     // tiles[x][y]
-    pub tiles: Vec<Vec<Tile>>
+    pub tiles: Vec<Vec<Tile>>,
+    pub start: (usize, usize)
 }
 impl Map {
     pub fn init () -> Map {
@@ -150,12 +234,38 @@ impl Map {
         let cards_field = generate_field(
             &mut fields, &mut ends, &dead_ends, &corner
         );
+        let (tiles, start) = generate_map(&cards_field);
         Map {
-            tiles: generate_map(&cards_field)
+            tiles,
+            start
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, player: &Player) {
+        let start_x = match player.x.checked_sub(
+            player.get_view_distance() as usize
+        ) {
+            Some(x) => x,
+            None    => 0
+        };
+        let start_y = match player.y.checked_sub(
+            player.get_view_distance() as usize
+        ) {
+            Some(y) => y,
+            None    => 0
+        };
+
+        let mut end_x = player.x + player.get_view_distance() as usize;
+        let mut end_y = player.y + player.get_view_distance() as usize;
+        let map_side = self.tiles.len();
+        if (end_x > map_side) {end_x = map_side};
+        if (end_y > map_side) {end_y = map_side};
+
+        for x in start_x..end_x {
+            for y in start_y..end_y {
+                self.tiles[x][y].visible = true;
+            }
+        }
     }
 
     pub fn draw<T: RenderTarget>
@@ -164,16 +274,16 @@ impl Map {
         let texture_side: u32 = textures["wall.png"].query().width;
         let mut place: Rect = Rect::new(0, 0, texture_side, texture_side);
 
-        for (y, column) in self.tiles.iter().enumerate() {
-            for (x, tile) in column.iter().enumerate() {
-                //if tile.visible {
+        for (x, column) in self.tiles.iter().enumerate() {
+            for (y, tile) in column.iter().enumerate() {
+                if tile.visible {
                     let texture: &Texture = &textures[&tile.icon];
                     place.set_x(((x as u32) * texture_side) as i32);
                     place.set_y(((y as u32) * texture_side) as i32);
 
                     canvas.copy(texture, None, place)
                         .expect("Texture rendering error!");
-                //}
+                }
             }
         }
     }
@@ -222,7 +332,7 @@ fn init_cards //{{{
 
                     // Retrieving end cards
                     end_cards = query_statement.query_map(
-                        &[&"end"],
+                        &[&"end%"],
                         |row| {
                             let rowid: i64 = row.get(0);
                             Card::new(rowid, &db_connection).unwrap()
@@ -359,7 +469,10 @@ fn generate_field //{{{
  * and translates it into the game map
  */
 fn generate_map //{{{
-    (cards_field: &Vec<Vec<Card>>) -> Vec<Vec<Tile>>
+(
+    cards_field: &Vec<Vec<Card>>
+)
+-> (Vec<Vec<Tile>>, (usize, usize))
 {
     // Cards are square and equal. This is a must.
     let corner_card = &cards_field[0][0];
@@ -371,6 +484,8 @@ fn generate_map //{{{
         ttype: TileType::Wall,
         passable: false,
         visible: false,
+        curiosity_checked: false,
+        search_text: String::from(""),
         icon: String::from("wall.png"),
     };
 
@@ -390,6 +505,7 @@ fn generate_map //{{{
     }
 
     // Feeding actual tiles
+    let mut start: (usize, usize) = (0, 0);
     for (field_x, field_column) in cards_field.iter().enumerate() {
         for (field_y, field) in field_column.iter().enumerate() {
             let offset_x: usize = field_x * card_side;
@@ -397,11 +513,17 @@ fn generate_map //{{{
 
             for (x, card_column) in field.tiles.iter().enumerate() {
                 for (y, tile) in card_column.iter().enumerate() {
-                    map[offset_x + x][offset_y + y] = tile.clone();
+                    let tile_x = offset_x + x;
+                    let tile_y = offset_y + y;
+                    map[tile_x][tile_y] = tile.clone();
+
+                    if let TileType::Start = tile.ttype {
+                        start = (tile_x, tile_y);
+                    }
                 }
             }
         }
     }
-    map
+    (map, start)
 }
 //}}}
