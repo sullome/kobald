@@ -10,22 +10,31 @@ use sdl2::rect::Rect;
 use super::creature::Player;
 
 const CARDS_FIELDS_COUNT: usize = 18;
-const CARDS_ENDS_COUNT:   usize = 6;
+const ENDS_COUNT:         usize = 6;
 
 const CARDS_MAP_SIDE:     usize = 3;
 
 use super::DB_FILENAME;
-const DB_TABLE_W_CARDS: &'static str        = "cards";
+const DB_TABLE_W_CARDS:        &'static str = "cards";
 const DB_TABLE_W_CARDS_COLUMN: &'static str = "tiles";
 
 //{{{ Tile
 #[derive(Copy,Clone)]
 pub enum TileType {
-    Start,
     Floor,
     Wall,
     Obstacle,
-    Curiousity
+    Curiosity
+}
+
+#[derive(Copy,Clone)]
+pub enum EndType {
+    Start,
+    Children,
+    Body,
+    Lair,
+    Item,
+    Rest
 }
 
 #[derive(Clone)]
@@ -40,23 +49,18 @@ pub struct Tile {
     icon: String
 }
 impl Tile {
-    pub fn init<T: Rng>
+    pub fn init_regular<T: Rng>
     (
-        tile_char: &char,
-        card_id: &i64,
+        tile_type: TileType,
         db_conn: &Connection,
         rng: &mut T
     )
-    -> Tile
+    -> Option<Tile>
     {
-        let tile_type = match *tile_char {
-            '#' => TileType::Wall,
-            '_' => TileType::Floor,
-            's' => TileType::Start,
-            'x' => TileType::Obstacle,
-            '?' => TileType::Curiousity,
-            _   => TileType::Floor,
-        };
+        if let TileType::Curiosity = tile_type {
+            return None
+        }
+
         let tile_image = String::from(match tile_type {
             TileType::Wall => "wall.png",
             _ => "floor.png",
@@ -66,31 +70,10 @@ impl Tile {
             _ => true,
         };
 
-        let query: String = match tile_type {
-            TileType::Curiousity => String::from(
-                "select message from messages where situation = ?;"
-            ),
-            _ => String::from("select message ")
-                + "from messages "
-                + "where situation in ("
-                +     "select ctype "
-                +     "from " + DB_TABLE_W_CARDS + " "
-                +     "where rowid = ?"
-                + ");"
-                ,
-        };
+        let query = "select message from messages where situation = ?;";
         let mut statement = db_conn.prepare(&query).unwrap();
 
         let messages: Vec<String> = match tile_type {
-            TileType::Curiousity => statement.query_map(
-                &[card_id],
-                |row| {
-                    let s:String = row.get(0);
-                    s
-                }
-            ).unwrap().map(
-                |row| row.unwrap()
-            ).collect(),
             TileType::Wall => statement.query_map(
                 &[&"wall"],
                 |row| {
@@ -109,15 +92,6 @@ impl Tile {
             ).unwrap().map(
                 |row| row.unwrap()
             ).collect(),
-            TileType::Start => statement.query_map(
-                &[&"start"],
-                |row| {
-                    let s:String = row.get(0);
-                    s
-                }
-            ).unwrap().map(
-                |row| row.unwrap()
-            ).collect(),
             TileType::Obstacle => statement.query_map(
                 &[&"obstacle"],
                 |row| {
@@ -126,7 +100,8 @@ impl Tile {
                 }
             ).unwrap().map(
                 |row| row.unwrap()
-            ).collect()
+            ).collect(),
+            _ => Vec::new()
         };
 
         let message: String = match rng.choose(&messages){
@@ -134,13 +109,101 @@ impl Tile {
             None    => String::from("")
         };
 
-        Tile {
+        Some(Tile {
             ttype: tile_type,
             passable: tile_pass,
             visible: false,
             curiosity_checked: false,
             search_text: message,
             icon: tile_image
+        })
+    }
+
+    pub fn init_curio<T: Rng>
+        (end_type: EndType, rng: &mut T) -> Option<Tile>
+    {
+        let mut db_path = PathBuf::from(".");
+        db_path.push(DB_FILENAME);
+
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
+        match Connection::open_with_flags(&db_path, flags) {
+            Ok(db_connection) => {
+                let query ="select message from messages where situation = ?;";
+                let mut statement = db_connection.prepare(&query).unwrap();
+
+                let messages: Vec<String> = match end_type {
+                    EndType::Start => statement.query_map(
+                        &[&"start"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    EndType::Children => statement.query_map(
+                        &[&"children"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    EndType::Body => statement.query_map(
+                        &[&"body"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    EndType::Lair => statement.query_map(
+                        &[&"lair"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    EndType::Item => statement.query_map(
+                        &[&"item"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    EndType::Rest => statement.query_map(
+                        &[&"rest"],
+                        |row| {
+                            let s:String = row.get(0);
+                            s
+                        }
+                    ).unwrap().map(
+                        |row| row.unwrap()
+                    ).collect(),
+                    _ => Vec::new()
+                };
+
+                let message: String = match rng.choose(&messages){
+                    Some(m) => m.clone(),
+                    None    => return None
+                };
+
+                Some(Tile {
+                    ttype: TileType::Curiosity,
+                    passable: true,
+                    visible: false,
+                    curiosity_checked: false,
+                    search_text: message,
+                    icon: String::from("floor.png")
+                })
+            },
+            Err(_) => return None
         }
     }
 }
@@ -199,12 +262,23 @@ impl Card {
 
                     for y in 0..card_side {
                         let tile_char: char = tiles_chars[x][y];
-                        let tile: Tile = Tile::init(
-                            &tile_char,
-                            &id,
-                            db_conn,
-                            &mut random_number_generator
-                        );
+                        let tile: Tile = match tile_char {
+                            '#' => Tile::init_regular(
+                                TileType::Wall,
+                                db_conn,
+                                &mut random_number_generator
+                            ).unwrap(),
+                            '_' => Tile::init_regular(
+                                TileType::Floor,
+                                db_conn,
+                                &mut random_number_generator
+                            ).unwrap(),
+                            _ => Tile::init_regular(
+                                TileType::Wall,
+                                db_conn,
+                                &mut random_number_generator
+                            ).unwrap(),
+                        };
                         card.tiles[x].push(tile);
                     }
                 }
@@ -228,12 +302,10 @@ pub struct Map {
 }
 impl Map {
     pub fn init () -> Map {
-        let (mut fields, mut ends, dead_ends, corner) = init_cards().expect(
+        let mut fields = init_cards().expect(
             "Failed to init cards."
         );
-        let cards_field = generate_field(
-            &mut fields, &mut ends, &dead_ends, &corner
-        );
+        let cards_field = generate_field(&mut fields);
         let (tiles, start) = generate_map(&cards_field);
         Map {
             tiles,
@@ -294,15 +366,12 @@ impl Map {
  * Basic initialization of cards is handled by this function
  */
 fn init_cards //{{{
-    () -> Result<
-        (Vec<Card>, Vec<Card>, HashMap<&'static str, Card>, Card),
-        ()
-    >
+    () -> Result<Vec<Card>, ()>
 {
     // Generic query for retrieving rowids of cards
     let query = String::from("select rowid from ")
         + DB_TABLE_W_CARDS
-        + " where ctype like ?;"
+        + ";"
     ;
 
     let mut db_path = PathBuf::from(".");
@@ -313,15 +382,9 @@ fn init_cards //{{{
         Ok(db_connection) => {
             match db_connection.prepare(&query) {
                 Ok(mut query_statement) => {
-                    let field_cards: Vec<Card>;
-                    let end_cards:   Vec<Card>;
-                    let mut dead_ends:   HashMap<&'static str, Card> =
-                        HashMap::with_capacity(4);
-                    let corner_card: Card;
-
-                    // Retrieving field cards
-                    field_cards = query_statement.query_map(
-                        &[&"field"],
+                    // Retrieving cards
+                    let field_cards: Vec<Card> = query_statement.query_map(
+                        &[],
                         |row| {
                             let rowid: i64 = row.get(0);
                             Card::new(rowid, &db_connection).unwrap()
@@ -330,42 +393,7 @@ fn init_cards //{{{
                         |row| row.unwrap()
                     ).collect();
 
-                    // Retrieving end cards
-                    end_cards = query_statement.query_map(
-                        &[&"end%"],
-                        |row| {
-                            let rowid: i64 = row.get(0);
-                            Card::new(rowid, &db_connection).unwrap()
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect();
-
-                    // Retrieving dead end cards
-                    for side in ["left", "top", "right", "bottom"].iter() {
-                        let rowid: i64 = query_statement
-                            .query_row(
-                                &[side],
-                                |row| row.get(0)
-                            )
-                            .unwrap()
-                        ;
-                        dead_ends.insert(
-                            side,
-                            Card::new(rowid, &db_connection).unwrap()
-                        );
-                    }
-
-                    // Retrieving corner card
-                    corner_card = query_statement.query_row(
-                        &[&"corner"],
-                        |row| {
-                            let rowid: i64 = row.get(0);
-                            Card::new(rowid, &db_connection).unwrap()
-                        }
-                    ).unwrap();
-
-                    Ok((field_cards, end_cards, dead_ends, corner_card))
+                    Ok(field_cards)
                 },
                 Err(_) => return Err(())
             }
@@ -379,17 +407,15 @@ fn init_cards //{{{
  * This function generates random field of cards
  */
 fn generate_field //{{{
-(
-    fields: &mut Vec<Card>, ends: &mut Vec<Card>,
-    dead_ends: &HashMap<&str, Card>, corner: &Card
-) -> Vec<Vec<Card>>
+    (fields: &mut Vec<Card>) -> Vec<Vec<Card>>
 {
     let mut random_number_generator = StdRng::new()
         .expect("Failed to read randomness from operating system.");
     random_number_generator.shuffle(fields);
 
     // Ends makes a "border" of width equal to 1 card around fields
-    let cardfield_side: usize = CARDS_MAP_SIDE + 2;
+    // UPD: we do not need such border
+    let cardfield_side: usize = CARDS_MAP_SIDE;
     let end_index: usize = cardfield_side - 1;
 
     // Row of columns
@@ -402,63 +428,72 @@ fn generate_field //{{{
 
         // Inserting cards
         for y in 0..cardfield_side {
-            match (x, y) {
-                // Catch corners
-                (0, 0)
-                    => cardfield[x].push(corner.clone()),
-                (coord, 0) | (0, coord)
-                    if coord == end_index
-                    => cardfield[x].push(corner.clone()),
-                (coordx, coordy)
-                    if (coordx == end_index && coordy == end_index)
-                    => cardfield[x].push(corner.clone()),
+            /*
+             * UPD: No border — no need to match anything
+             * match (x, y) {
+             *     // Catch corners
+             *     (0, 0)
+             *         => cardfield[x].push(corner.clone()),
+             *     (coord, 0) | (0, coord)
+             *         if coord == end_index
+             *         => cardfield[x].push(corner.clone()),
+             *     (coordx, coordy)
+             *         if (coordx == end_index && coordy == end_index)
+             *         => cardfield[x].push(corner.clone()),
 
-                // Then catch ends
-                (0, ..)
-                    => cardfield[x].push(dead_ends["left"].clone()),
-                (.., 0)
-                    => cardfield[x].push(dead_ends["top"].clone()),
-                (coord, ..)
-                    if coord == end_index
-                    => cardfield[x].push(dead_ends["right"].clone()),
-                (.., coord)
-                    if coord == end_index
-                    => cardfield[x].push(dead_ends["bottom"].clone()),
+             *     // Then catch ends
+             *     (0, ..)
+             *         => cardfield[x].push(dead_ends["left"].clone()),
+             *     (.., 0)
+             *         => cardfield[x].push(dead_ends["top"].clone()),
+             *     (coord, ..)
+             *         if coord == end_index
+             *         => cardfield[x].push(dead_ends["right"].clone()),
+             *     (.., coord)
+             *         if coord == end_index
+             *         => cardfield[x].push(dead_ends["bottom"].clone()),
 
-                // Now we can catch everything else - main field
-                _ => {
-                    if let Some(field) = fields.pop() {
-                        cardfield[x].push(field)
-                    }
-                }
+             *     // Now we can catch everything else - main field
+             *     _ => {
+             *         if let Some(field) = fields.pop() {
+             *             cardfield[x].push(field)
+             *         }
+             *     }
+             * }
+             */
+            if let Some(field) = fields.pop() {
+                cardfield[x].push(field)
             }
         }
     }
 
     // Now placing special ends
-    let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
-        CARDS_MAP_SIDE * 4
-    );
-    for x in 1..end_index {
-        // Top row, without corners
-        possible_locations.push((x, 0));
+    /*
+     * UPD: no border → no special ends
+     * let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
+     *     CARDS_MAP_SIDE * 4
+     * );
+     * for x in 1..end_index {
+     *     // Top row, without corners
+     *     possible_locations.push((x, 0));
 
-        // Bottom row, without corners
-        possible_locations.push((x, end_index));
-    }
-    for y in 1..end_index {
-        // Left column, without corners
-        possible_locations.push((0, y));
+     *     // Bottom row, without corners
+     *     possible_locations.push((x, end_index));
+     * }
+     * for y in 1..end_index {
+     *     // Left column, without corners
+     *     possible_locations.push((0, y));
 
-        // Right column, without corners
-        possible_locations.push((end_index, y));
-    }
+     *     // Right column, without corners
+     *     possible_locations.push((end_index, y));
+     * }
 
-    random_number_generator.shuffle(&mut possible_locations);
-    random_number_generator.shuffle(ends);
-    for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
-        cardfield[x][y] = end.clone();
-    }
+     * random_number_generator.shuffle(&mut possible_locations);
+     * random_number_generator.shuffle(ends);
+     * for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
+     *     cardfield[x][y] = end.clone();
+     * }
+     */
 
     cardfield
 }
@@ -505,7 +540,6 @@ fn generate_map //{{{
     }
 
     // Feeding actual tiles
-    let mut start: (usize, usize) = (0, 0);
     for (field_x, field_column) in cards_field.iter().enumerate() {
         for (field_y, field) in field_column.iter().enumerate() {
             let offset_x: usize = field_x * card_side;
@@ -517,13 +551,68 @@ fn generate_map //{{{
                     let tile_y = offset_y + y;
                     map[tile_x][tile_y] = tile.clone();
 
-                    if let TileType::Start = tile.ttype {
-                        start = (tile_x, tile_y);
-                    }
+                    /*
+                     * UPD: Not here and not like that
+                     * if let TileType::Start = tile.ttype {
+                     *     start = (tile_x, tile_y);
+                     * }
+                     */
                 }
             }
         }
     }
-    (map, start)
+
+    // Finding dead ends
+    let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
+        CARDS_MAP_SIDE * 2 * 4
+    );
+    let max_coord = map.len();
+    for y in 1..max_coord {
+        // Top row
+        if let TileType::Floor = map[0][y].ttype {
+            possible_locations.push((0, y));
+        }
+        // Bottom row
+        if let TileType::Floor = map[max_coord - 1][y].ttype {
+            possible_locations.push((max_coord - 1, y));
+        }
+    }
+    for x in 1..max_coord {
+        // Top row
+        if let TileType::Floor = map[x][0].ttype {
+            possible_locations.push((x, 0));
+        }
+        // Bottom row
+        if let TileType::Floor = map[x][max_coord - 1].ttype {
+            possible_locations.push((x, max_coord - 1));
+        }
+    }
+
+    let mut random_number_generator = StdRng::new()
+        .expect("Failed to read randomness from operating system.");
+
+    let start_tile = Tile::init_curio(
+        EndType::Start,
+        &mut random_number_generator
+    ).unwrap();
+    let mut ends: Vec<Tile> = vec![
+        Tile::init_curio(EndType::Children, &mut random_number_generator).unwrap(),
+        Tile::init_curio(EndType::Lair, &mut random_number_generator).unwrap(),
+        Tile::init_curio(EndType::Body, &mut random_number_generator).unwrap(),
+        Tile::init_curio(EndType::Item, &mut random_number_generator).unwrap(),
+        Tile::init_curio(EndType::Rest, &mut random_number_generator).unwrap()
+    ];
+
+    random_number_generator.shuffle(&mut possible_locations);
+    random_number_generator.shuffle(&mut ends);
+
+    let (start_x, start_y) = possible_locations.pop().unwrap();
+    map[start_x][start_y] = start_tile;
+
+    for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
+        map[x][y] = end.clone();
+    }
+
+    (map, (start_x, start_y))
 }
 //}}}

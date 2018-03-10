@@ -113,11 +113,14 @@ impl Player {
     }
 
     fn move_relative(&mut self, x_mod: isize, y_mod: isize, map: &Map) {
+        let map_size = map.tiles.len() as isize - 1;
         let mut new_x: isize = self.x as isize + x_mod;
         let mut new_y: isize = self.y as isize + y_mod;
 
         if new_x < 0 {new_x = 0};
         if new_y < 0 {new_y = 0};
+        if new_x >= map_size {new_x = map_size};
+        if new_y >= map_size {new_y = map_size};
         let new_x: usize = new_x as usize;
         let new_y: usize = new_y as usize;
 
