@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 use super::map::Map;
 
+use super::MAP_OFFSET;
+
 use super::DB_FILENAME;
 const DB_VIEW_DISTANCE:        &'static str = "visible_distance";
 const DB_RESOURCE_MAX:         &'static str = "resource_max";
@@ -140,6 +142,18 @@ impl Player {
                 => self.move_relative(-1, 0, map),
             Event::KeyDown {keycode: Some(Keycode::Right), .. }
                 => self.move_relative(1, 0, map),
+            Event::KeyDown {keycode: Some(Keycode::Num1), .. }
+            | Event::KeyDown {keycode: Some(Keycode::Kp1), .. }
+                => self.move_relative(-1, 1, map),
+            Event::KeyDown {keycode: Some(Keycode::Num3), .. }
+            | Event::KeyDown {keycode: Some(Keycode::Kp3), .. }
+                => self.move_relative(1, 1, map),
+            Event::KeyDown {keycode: Some(Keycode::Num7), .. }
+            | Event::KeyDown {keycode: Some(Keycode::Kp7), .. }
+                => self.move_relative(-1, -1, map),
+            Event::KeyDown {keycode: Some(Keycode::Num9), .. }
+            | Event::KeyDown {keycode: Some(Keycode::Kp9), .. }
+                => self.move_relative(1, -1, map),
             _   => ()
         }
     }
@@ -154,8 +168,8 @@ impl Player {
         let texture: &Texture = &textures["player.png"];
         let texture_side: u32 = texture.query().width;
         let mut place: Rect = Rect::new(
-            ((self.x as u32) * texture_side) as i32,
-            ((self.y as u32) * texture_side) as i32,
+            ((self.x as u32) * texture_side) as i32 + MAP_OFFSET,
+            ((self.y as u32) * texture_side) as i32 + MAP_OFFSET,
             texture_side,
             texture_side
         );

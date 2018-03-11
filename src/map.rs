@@ -14,6 +14,8 @@ const ENDS_COUNT:         usize = 6;
 
 const CARDS_MAP_SIDE:     usize = 3;
 
+use super::MAP_OFFSET;
+
 use super::DB_FILENAME;
 const DB_TABLE_W_CARDS:        &'static str = "cards";
 const DB_TABLE_W_CARDS_COLUMN: &'static str = "tiles";
@@ -343,6 +345,12 @@ impl Map {
     pub fn draw<T: RenderTarget>
         (&self, textures: &HashMap<String, Texture>, canvas: &mut Canvas<T>)
     {
+        let map: &Texture = &textures["map.png"];
+        let map_side: u32 = map.query().width;
+        let mut map_place: Rect = Rect::new(0, 0, map_side, map_side);
+        canvas.copy(map, None, map_place)
+            .expect("Texture rendering error!");
+
         let texture_side: u32 = textures["wall.png"].query().width;
         let mut place: Rect = Rect::new(0, 0, texture_side, texture_side);
 
@@ -350,8 +358,10 @@ impl Map {
             for (y, tile) in column.iter().enumerate() {
                 if tile.visible {
                     let texture: &Texture = &textures[&tile.icon];
-                    place.set_x(((x as u32) * texture_side) as i32);
-                    place.set_y(((y as u32) * texture_side) as i32);
+                    let tx = ((x as u32) * texture_side) as i32 + MAP_OFFSET;
+                    let ty = ((y as u32) * texture_side) as i32 + MAP_OFFSET;
+                    place.set_x(tx);
+                    place.set_y(ty);
 
                     canvas.copy(texture, None, place)
                         .expect("Texture rendering error!");

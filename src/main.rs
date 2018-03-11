@@ -22,7 +22,7 @@ const DB_IMAGES_TABLE:  &'static str = "images";
 const DB_IMAGES_COLUMN: &'static str = "image";
 
 const GAME_NAME: &'static str = "Kobalt";
-const TEXTURE_SIDE: usize = 8;
+const MAP_SIDE: u32 = 696;
 
 fn init_textures<T>
     (texture_creator: &TextureCreator<T>) -> HashMap<String, Texture>
@@ -86,7 +86,6 @@ fn init_textures<T>
 fn main() {
     // Init game variables
     let mut map = Map::init();
-    let map_side = map.tiles[0].len();
     let mut player = Player::init(map.start.0, map.start.1);
 
     // Init SDL2 and it's subsystems
@@ -100,8 +99,7 @@ fn main() {
         .expect("SDL Event Pump initialization error.");
 
     // Init main window
-    let window_side: u32 = (map_side * TEXTURE_SIDE) as u32;
-    let window = sdl_video.window(GAME_NAME, window_side, window_side)
+    let window = sdl_video.window(GAME_NAME, MAP_SIDE, MAP_SIDE)
         .position_centered()
         .build()
         .expect("Window build error.");

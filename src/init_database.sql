@@ -7,13 +7,14 @@ create table game_settings(setting TEXT, value NUMERIC);
 
 --{{{ Inserts
 insert into game_settings(setting, value) values
-    ('visible_distance', 6 ),
+    ('visible_distance', 3 ),
     ('resource_max',     10),
     ('resource_start',   3);
 insert into images(name, image) values
     ('wall.png',   readfile('data/tiles/wall.png')  ),
     ('floor.png',  readfile('data/tiles/floor.png') ),
-    ('player.png', readfile('data/icons/player.png'));
+    ('player.png', readfile('data/icons/player.png')),
+    ('map.png',    readfile('data/map.png')         );
 insert into messages(situation, message) values
     ('start',    'Start of the journey.'       ),
     ('children', 'Happy end.'                  ),
