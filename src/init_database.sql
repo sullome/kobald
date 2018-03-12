@@ -1,15 +1,19 @@
 --{{{ Tables
 create table cards (tiles BLOB);
 create table images(name TEXT, image BLOB);
+create table fonts(name TEXT, font BLOB);
 create table messages(situation TEXT, message TEXT);
 create table game_settings(setting TEXT, value NUMERIC);
 --}}}
 
 --{{{ Inserts
 insert into game_settings(setting, value) values
+    ('textline_max_len', 66),
     ('visible_distance', 3 ),
     ('resource_max',     10),
     ('resource_start',   3);
+insert into fonts(name, font) values
+    ('DejaVu Sans', readfile('data/DejaVuSans.ttf'));
 insert into images(name, image) values
     ('wall.png',   readfile('data/tiles/wall.png')  ),
     ('floor.png',  readfile('data/tiles/floor.png') ),

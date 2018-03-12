@@ -45,7 +45,7 @@ pub struct Tile {
     pub passable: bool,
     visible: bool,
     curiosity_checked: bool,
-    search_text: String,
+    pub search_text: String,
 
     // Name of the icon
     icon: String
