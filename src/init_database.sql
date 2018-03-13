@@ -8,10 +8,24 @@ create table game_settings(setting TEXT, value NUMERIC);
 
 --{{{ Inserts
 insert into game_settings(setting, value) values
-    ('textline_max_len', 66),
-    ('visible_distance', 3 ),
-    ('resource_max',     10),
-    ('resource_start',   3);
+    ('game_name',    'Kobold'),
+    ('bg_x',                0),
+    ('bg_y',                0),
+    ('bg_w',              696),
+    ('bg_h',              696),
+    ('map_x',              24),
+    ('map_y',              24),
+    ('map_w',             576),
+    ('map_h',             576),
+    ('text_x',             24),
+    ('text_y',            624),
+    ('text_w',            576),
+    ('text_h',             48),
+    ('textline_max_len',   66),
+    ('textline_font_size', 24),
+    ('visible_distance',    3),
+    ('resource_max',       10),
+    ('resource_start',      3);
 insert into fonts(name, font) values
     ('DejaVu Sans', readfile('data/DejaVuSans.ttf'));
 insert into images(name, image) values
@@ -26,7 +40,7 @@ insert into messages(situation, message) values
     ('lair',     'Bad end.'                    ),
     ('item',     'What is this?'               ),
     ('rest',     'This looks like a safe place'),
-    ('wall',     ''                            ),
+    ('wall',     ' '                           ),
     ('floor',    'Old mines…'                  ),
     ('obstacle', 'Damn… No way further.'       );
 insert into cards(tiles) values

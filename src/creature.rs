@@ -1,15 +1,10 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::render::{Canvas,Texture,RenderTarget};
-use sdl2::rect::Rect;
 use rusqlite::{Connection, OpenFlags};
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use super::map::Map;
-
-use super::MAP_OFFSET;
 
 use super::DB_FILENAME;
 const DB_VIEW_DISTANCE:        &'static str = "visible_distance";
@@ -156,25 +151,6 @@ impl Player {
                 => self.move_relative(1, -1, map),
             _   => ()
         }
-    }
-
-    pub fn draw<T: RenderTarget>
-    (
-        &self,
-        textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<T>
-    )
-    {
-        let texture: &Texture = &textures["player.png"];
-        let texture_side: u32 = texture.query().width;
-        let mut place: Rect = Rect::new(
-            ((self.x as u32) * texture_side) as i32 + MAP_OFFSET,
-            ((self.y as u32) * texture_side) as i32 + MAP_OFFSET,
-            texture_side,
-            texture_side
-        );
-        canvas.copy(texture, None, place)
-            .expect("Texture rendering error!");
     }
 }
 

@@ -1,11 +1,8 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use rand::{Rng, StdRng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
-use sdl2::render::{Canvas,Texture,RenderTarget};
-use sdl2::rect::Rect;
 
 use super::creature::Player;
 
@@ -13,8 +10,6 @@ const CARDS_FIELDS_COUNT: usize = 18;
 const ENDS_COUNT:         usize = 6;
 
 const CARDS_MAP_SIDE:     usize = 3;
-
-use super::MAP_OFFSET;
 
 use super::DB_FILENAME;
 const DB_TABLE_W_CARDS:        &'static str = "cards";
@@ -43,12 +38,12 @@ pub enum EndType {
 pub struct Tile {
     pub ttype: TileType,
     pub passable: bool,
-    visible: bool,
+    pub visible: bool,
     curiosity_checked: bool,
     pub search_text: String,
 
     // Name of the icon
-    icon: String
+    pub icon: String
 }
 impl Tile {
     pub fn init_regular<T: Rng>
@@ -338,34 +333,6 @@ impl Map {
         for x in start_x..end_x {
             for y in start_y..end_y {
                 self.tiles[x][y].visible = true;
-            }
-        }
-    }
-
-    pub fn draw<T: RenderTarget>
-        (&self, textures: &HashMap<String, Texture>, canvas: &mut Canvas<T>)
-    {
-        let map: &Texture = &textures["map.png"];
-        let map_side: u32 = map.query().width;
-        let mut map_place: Rect = Rect::new(0, 0, map_side, map_side);
-        canvas.copy(map, None, map_place)
-            .expect("Texture rendering error!");
-
-        let texture_side: u32 = textures["wall.png"].query().width;
-        let mut place: Rect = Rect::new(0, 0, texture_side, texture_side);
-
-        for (x, column) in self.tiles.iter().enumerate() {
-            for (y, tile) in column.iter().enumerate() {
-                if tile.visible {
-                    let texture: &Texture = &textures[&tile.icon];
-                    let tx = ((x as u32) * texture_side) as i32 + MAP_OFFSET;
-                    let ty = ((y as u32) * texture_side) as i32 + MAP_OFFSET;
-                    place.set_x(tx);
-                    place.set_y(ty);
-
-                    canvas.copy(texture, None, place)
-                        .expect("Texture rendering error!");
-                }
             }
         }
     }
