@@ -4,7 +4,7 @@ use rand::{Rng, StdRng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
 
-use super::creature::Player;
+use super::objects::Player;
 
 const CARDS_FIELDS_COUNT: usize = 18;
 const ENDS_COUNT:         usize = 6;

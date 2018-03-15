@@ -1,6 +1,7 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use rusqlite::{Connection, OpenFlags};
+use rand::{Rng, StdRng};
 
 use std::path::PathBuf;
 
@@ -98,48 +99,57 @@ impl Player {
         }
     }
 
-    pub fn update(&mut self, event: &Event, map: &Map, objects: &Vec<Resource>)
+    pub fn update(&mut self, key: &Keycode, map: &Map, objects: &Vec<Resource>)
     {
-        match *event {
+        match *key {
             // Movement
-            Event::KeyDown {keycode: Some(Keycode::Up), .. }
-            | Event::KeyDown {keycode: Some(Keycode::Kp8), .. }
+            Keycode::Up    | Keycode::Kp8
                 => self.move_relative(0, -1, map),
-            Event::KeyDown {keycode: Some(Keycode::Down), .. }
-            | Event::KeyDown {keycode: Some(Keycode::Kp2), .. }
+            Keycode::Down  | Keycode::Kp2
                 => self.move_relative(0, 1, map),
-            Event::KeyDown {keycode: Some(Keycode::Left), .. }
-            | Event::KeyDown {keycode: Some(Keycode::Kp4), .. }
+            Keycode::Left  | Keycode::Kp4
                 => self.move_relative(-1, 0, map),
-            Event::KeyDown {keycode: Some(Keycode::Right), .. }
-            | Event::KeyDown {keycode: Some(Keycode::Kp6), .. }
+            Keycode::Right | Keycode::Kp6
                 => self.move_relative(1, 0, map),
-            Event::KeyDown {keycode: Some(Keycode::Kp1), .. }
+            Keycode::Kp1
                 => self.move_relative(-1, 1, map),
-            Event::KeyDown {keycode: Some(Keycode::Kp3), .. }
+            Keycode::Kp3
                 => self.move_relative(1, 1, map),
-            Event::KeyDown {keycode: Some(Keycode::Kp7), .. }
+            Keycode::Kp7
                 => self.move_relative(-1, -1, map),
-            Event::KeyDown {keycode: Some(Keycode::Kp9), .. }
+            Keycode::Kp9
                 => self.move_relative(1, -1, map),
 
             // Actions
-            Event::KeyDown {keycode: Some(Keycode::R), .. }
-                => self.refill_view_resource(),
+            Keycode::R
+                => self.refill_view_resource().unwrap(),
 
             _   => ()
+        }
+        for resource in objects {
+            if resource.x == self.x && resource.y == self.y {
+                println!("Found lamp!");
+            }
         }
     }
 }
 
-struct Resource {
-    x: u8,
-    y: u8
+pub struct Resource {
+    x: usize,
+    y: usize
 }
 impl Resource {
     pub fn init_all(map: &Map, player: &Player) -> Vec<Resource> {
-        let sections = map.tiles.len() / player.view_resource_max;
-        let resources: Vec<Resource> = Vec::with_capacity(sections ^ 2);
+        let mut rng: StdRng = StdRng::new()
+            .expect("Cannot read randomness from OS");
+        let sections_side: u32 = match get_setting("resource_distance") {
+            Some(value) => value,
+            None        => (map.tiles.len()/player.view_resource_max as usize) as u32
+        };
+        let sections_side: usize = sections_side as usize;
+        let mut resources: Vec<Resource> = Vec::with_capacity(
+            map.tiles.len() / sections_side ^ 2
+        );
 
         /*
          * Two 'while' cycles are needed to segregate map into sections
@@ -147,35 +157,44 @@ impl Resource {
          */
         let mut x = 0;
         while x < map.tiles.len() {
-            let max_x = x + player.view_resource_max;
-            if max_x > map.tiles.len() {
-                max_x = map.tiles.len();
-            }
+            let max_x = (x + sections_side).min(map.tiles.len());
 
             let mut y = 0;
             while y < map.tiles.len() {
-                let max_y = y + player.view_resource_max;
-                if max_y > map.tiles.len() {
-                    max_y = map.tiles.len();
-                }
+                let max_y = (y + sections_side).min(map.tiles.len());
 
                 /*
                  * Now we can do what's needs to be done in those sections
                  */
-                let possible_locations: Vec<(usize, usize)> = Vec::new();
-                for inner_x in (x..max_x).iter() {
-                    for inner_y in (y..max_y).iter() {
+                let mut possible_locations: Vec<(usize, usize)> = Vec::new();
+                for inner_x in x..max_x {
+                    for inner_y in y..max_y {
+                        if map.tiles[inner_x][inner_y].passable {
+                            possible_locations.push((inner_x, inner_y));
+                        }
                     }
+                }
+                let maybe_location: Option<&(usize, usize)> = rng
+                    .choose(&possible_locations);
+                if let Some(location) = maybe_location {
+                    resources.push(
+                        Resource {
+                            x: location.0,
+                            y: location.1
+                        }
+                    )
                 }
                 /*
                  * End of work with sections
                  */
 
-                y += player.view_resource_max;
+                y += sections_side;
             }
 
-            x += player.view_resource_max;
+            x += sections_side;
         }
+
+    resources
     }
 }
 

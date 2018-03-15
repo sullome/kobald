@@ -14,7 +14,7 @@ pub fn get_setting<T: FromSql>
     // Setting up database connection
     let db_path: PathBuf = [".", DB_FILENAME].iter().collect();
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
-    let db_connection = match Connection::open_with_flags(&db_path, flags)
+    let db_connection = Connection::open_with_flags(&db_path, flags)
         .expect("Cannot read data.");
 
     match db_connection.query_row

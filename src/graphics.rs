@@ -13,7 +13,7 @@ use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read; // For Blob
 
 use super::map::Map;
-use super::creature::Player;
+use super::objects::Player;
 use super::get_setting;
 
 use super::DB_FILENAME;
@@ -32,29 +32,29 @@ impl GUIElement {
 
         name_string.push('x');
         let x: i32 = match get_setting(&name_string) {
-            Ok(value) => value,
-            Err(_)    => 0,
+            Some(value) => value,
+            None        => 0,
         };
 
         name_string.pop();
         name_string.push('y');
         let y: i32 = match get_setting(&name_string) {
-            Ok(value) => value,
-            Err(_)    => 0,
+            Some(value) => value,
+            None        => 0,
         };
 
         name_string.pop();
         name_string.push('w');
         let width: u32 = match get_setting(&name_string) {
-            Ok(value) => value,
-            Err(_)    => 1,
+            Some(value) => value,
+            None        => 1,
         };
 
         name_string.pop();
         name_string.push('h');
         let height: u32 = match get_setting(&name_string) {
-            Ok(value) => value,
-            Err(_)    => 1,
+            Some(value) => value,
+            None        => 1,
         };
 
         GUIElement {
@@ -297,8 +297,8 @@ pub fn init_textures<T> //{{{
         .expect("Cannot open font bytes as a stream.");
 
     let font_height: u16 = match get_setting("textline_font_size") {
-        Ok(height) => height,
-        Err(_)     => 12,
+        Some(height) => height,
+        None         => 12,
     };
     let font = sdl_ttf
         .load_font_from_rwops(abstract_stream, font_height)
@@ -345,8 +345,8 @@ pub fn init_sdl2
     () -> (Canvas<Window>, EventPump)
 {
     let game_name: String = match get_setting("game_name") {
-        Ok(name) => name,
-        Err(_)   => String::from("Debug")
+        Some(name) => name,
+        None       => String::from("Debug")
     };
 
     // Init SDL2 and it's subsystems

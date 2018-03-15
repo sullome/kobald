@@ -7,7 +7,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
 use sevend::map::Map;
-use sevend::creature::Player;
+use sevend::objects::*;
 use sevend::graphics::*;
 
 fn main() {
@@ -24,6 +24,7 @@ fn main() {
     // Init game variables
     let mut map = Map::init();
     let mut player = Player::init(map.start.0, map.start.1);
+    let mut resources = Resource::init_all(&map, &player);
 
     // Init GUI parts
     let mut textline = TextLine::init();
@@ -43,14 +44,16 @@ fn main() {
                         println!("QUIT");
                         break 'running;
                     },
-                Event::KeyDown {keycode: Some(Keycode::S), .. }
-                    => { },
-                e => player.update(&e, &map)
+                Event::KeyDown{keycode: Some(kcode), ..}
+                    => {
+                        // Update game
+                        player.update(&kcode, &map, &resources);
+                        map.update(&player);
+                    },
+                _ => ()
             }
         }
 
-        // Update game
-        map.update(&player);
 
         // Start drawing
         canvas.clear();
