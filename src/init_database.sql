@@ -21,6 +21,10 @@ insert into game_settings(setting, value) values
     ('text_y',            624),
     ('text_w',            576),
     ('text_h',             48),
+    ('flask_x',           629),
+    ('flask_y',           534),
+    ('flask_w',            32),
+    ('flask_h',           125),
     ('textline_max_len',   66),
     ('textline_font_size', 24),
     ('visible_distance',    3),
@@ -32,6 +36,7 @@ insert into images(name, image) values
     ('wall.png',   readfile('data/tiles/wall.png')  ),
     ('floor.png',  readfile('data/tiles/floor.png') ),
     ('player.png', readfile('data/icons/player.png')),
+    ('flask.png',  readfile('data/icons/flask.png') ),
     ('map.png',    readfile('data/map.png')         );
 insert into messages(situation, message) values
     ('start',    'Start of the journey.'       ),

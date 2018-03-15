@@ -9,6 +9,7 @@ use sdl2::rect::Rect;
 use sdl2::video::{Window, WindowPos};
 use sdl2::pixels::Color;
 use sdl2::EventPump;
+use sdl2::EventSubsystem;
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read; // For Blob
 
@@ -110,6 +111,23 @@ impl Background {
     }
 }
 
+pub struct ResourceCounter {
+    texture_name: String,
+    state: f32
+}
+impl ResourceCounter {
+    pub fn init(player: &Player) -> ResourceCounter {
+        ResourceCounter {
+            texture_name: String::from("flask.png"),
+            state: player.get_resource_state()
+        }
+    }
+
+    pub fn update(&mut self, player: &Player) {
+        self.state = player.get_resource_state()
+    }
+}
+
 pub trait Drawable {
     fn draw
     (
@@ -206,6 +224,49 @@ impl Drawable for Background //{{{
         canvas.copy(bg_texture, None, place)
             .expect("Text texture rendering error!");
 
+    }
+}
+//}}}
+impl Drawable for ResourceCounter //{{{
+{
+    fn draw
+    (
+        &self,
+        textures: &HashMap<String, Texture>,
+        canvas: &mut Canvas<Window>
+    )
+    {
+        // Declaring background
+        let mut bg_place: Rect = Rect::new(7, 24, 19, 89); //TODO
+        let bg_color: Color = Color::RGB(240, 167, 10); //TODO
+
+        // Calculating correct height and position, based on it
+        let correct_height: u32 =
+            (self.state * bg_place.height() as f32)
+            .round()
+            as u32;
+        let prev_y: i32 = bg_place.y();
+        let prev_h: i32 = bg_place.height() as i32;
+        bg_place.set_y(
+            prev_y + prev_h - correct_height as i32
+        );
+        bg_place.set_height(correct_height);
+
+        // Drawining oil rectangle
+        let previous_color: Color = canvas.draw_color();
+        canvas.set_draw_color(bg_color);
+        canvas.fill_rect(bg_place)
+            .expect("Failed to draw a rectangle.");
+        canvas.set_draw_color(previous_color);
+
+        // Drawing flask
+        let foreground: &Texture = &textures[&self.texture_name];
+        let fg_place: Rect = Rect::new(
+            0, 0,
+            foreground.query().width, foreground.query().height
+        );
+        canvas.copy(foreground, None, fg_place)
+            .expect("Text texture rendering error!");
     }
 }
 //}}}
@@ -342,7 +403,7 @@ pub fn init_textures<T> //{{{
  * This function initializes SDL2 window
  */
 pub fn init_sdl2
-    () -> (Canvas<Window>, EventPump)
+    () -> (Canvas<Window>, EventPump, EventSubsystem)
 {
     let game_name: String = match get_setting("game_name") {
         Some(name) => name,
@@ -358,6 +419,8 @@ pub fn init_sdl2
         .expect("SDL Image initialization error.");
     let sdl_eventpump = sdl_context.event_pump()
         .expect("SDL Event Pump initialization error.");
+    let sdl_event = sdl_context.event()
+        .expect("SDL Event subsystem initialization error.");
 
     // Init main window
     let window = sdl_video.window(&game_name, 10, 10)
@@ -373,7 +436,7 @@ pub fn init_sdl2
     canvas.clear();
     canvas.present();
 
-    (canvas, sdl_eventpump)
+    (canvas, sdl_eventpump, sdl_event)
 }
 
 pub fn configure_window

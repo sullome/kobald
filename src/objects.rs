@@ -1,4 +1,4 @@
-use sdl2::event::Event;
+use sdl2::EventSubsystem;
 use sdl2::keyboard::Keycode;
 use rusqlite::{Connection, OpenFlags};
 use rand::{Rng, StdRng};
@@ -9,8 +9,8 @@ use super::map::Map;
 use super::get_setting;
 
 use super::DB_FILENAME;
-const DB_RESOURCE_MAX:         &'static str = "resource_max";
 
+//{{{ Player
 pub struct Player {
     view_distance:       u8,
     view_resource:       u8,
@@ -21,7 +21,8 @@ pub struct Player {
     pub y: usize,
 }
 impl Player {
-    pub fn init(start_x: usize, start_y: usize) -> Player {
+    pub fn init(start_x: usize, start_y: usize) -> Player //{{{
+    {
         // Default values
         let mut player = Player {
             view_distance:       match get_setting("visible_distance") {
@@ -44,15 +45,25 @@ impl Player {
 
         player
     }
+    //}}}
 
-    pub fn get_view_distance(&self) -> u8 {
+    pub fn get_view_distance(&self) -> u8 //{{{
+    {
         match self.view_resource {
             0 => 0,
             _ => self.view_distance,
         }
     }
+    //}}}
 
-    pub fn refill_view_resource(&mut self) -> Result<(), &'static str> {
+    pub fn get_resource_state(&self) -> f32 //{{{
+    {
+        self.view_resource as f32 / self.view_resource_max as f32
+    }
+    //}}}
+
+    pub fn refill_view_resource(&mut self) -> Result<(), &'static str> //{{{
+    {
         match self.view_resource_count {
             0 => Err("I don't have enough oil."),
             _ => {
@@ -62,24 +73,26 @@ impl Player {
             }
         }
     }
+    //}}}
 
-    pub fn drain_view_resource(&mut self) {
+    pub fn drain_view_resource(&mut self) //{{{
+    {
         if self.view_resource > 0 {
             self.view_resource -= 1;
         }
     }
+    //}}}
 
-    pub fn add_view_resource_count(&mut self) -> Result<(), &'static str> {
-        match self.view_resource_count.checked_add(1) {
-            Some(new_count) => {
-                self.view_resource_count = new_count;
-                Ok(())
-            },
-            None => Err("I can't take that — it's too much for me."),
-        }
+    pub fn add_view_resource_count(&mut self) //{{{
+    {
+        if let Some(new_count) = self.view_resource_count.checked_add(1) {
+            self.view_resource_count = new_count;
+        };
     }
+    //}}}
 
-    fn move_relative(&mut self, x_mod: isize, y_mod: isize, map: &Map) {
+    fn move_relative(&mut self, x_mod: isize, y_mod: isize, map: &Map) //{{{
+    {
         let map_size = map.tiles.len() as isize - 1;
         let mut new_x: isize = self.x as isize + x_mod;
         let mut new_y: isize = self.y as isize + y_mod;
@@ -98,8 +111,16 @@ impl Player {
             self.drain_view_resource();
         }
     }
+    //}}}
 
-    pub fn update(&mut self, key: &Keycode, map: &Map, objects: &Vec<Resource>)
+    pub fn update //{{{
+    (
+        &mut self,
+        key: &Keycode,
+        map: &Map,
+        resources: &Resources,
+        event_system: &EventSubsystem
+    )
     {
         match *key {
             // Movement
@@ -122,32 +143,39 @@ impl Player {
 
             // Actions
             Keycode::R
-                => self.refill_view_resource().unwrap(),
+                => if let Err(_) = self.refill_view_resource() {
+                    let resource_absent = EventResourceAbsent{};
+                    event_system.push_custom_event(resource_absent).unwrap();
+                },
 
-            _   => ()
+            _   => return
         }
-        for resource in objects {
-            if resource.x == self.x && resource.y == self.y {
-                println!("Found lamp!");
+
+        for (i, &resource_location) in resources.locations.iter().enumerate() {
+            if resource_location == (self.x, self.y) {
+                let resource_found = EventResourceFound{index: i};
+                event_system.push_custom_event(resource_found).unwrap();
             }
         }
     }
+    //}}}
 }
+//}}}
 
-pub struct Resource {
-    x: usize,
-    y: usize
+//{{{ Resources
+pub struct Resources {
+    locations: Vec<(usize, usize)>
 }
-impl Resource {
-    pub fn init_all(map: &Map, player: &Player) -> Vec<Resource> {
+impl Resources {
+    pub fn init(map: &Map, player: &Player) -> Resources {
         let mut rng: StdRng = StdRng::new()
             .expect("Cannot read randomness from OS");
         let sections_side: u32 = match get_setting("resource_distance") {
             Some(value) => value,
-            None        => (map.tiles.len()/player.view_resource_max as usize) as u32
+            None        => player.view_resource_max as u32
         };
         let sections_side: usize = sections_side as usize;
-        let mut resources: Vec<Resource> = Vec::with_capacity(
+        let mut locations: Vec<(usize, usize)> = Vec::with_capacity(
             map.tiles.len() / sections_side ^ 2
         );
 
@@ -177,12 +205,7 @@ impl Resource {
                 let maybe_location: Option<&(usize, usize)> = rng
                     .choose(&possible_locations);
                 if let Some(location) = maybe_location {
-                    resources.push(
-                        Resource {
-                            x: location.0,
-                            y: location.1
-                        }
-                    )
+                    locations.push(*location);
                 }
                 /*
                  * End of work with sections
@@ -194,10 +217,16 @@ impl Resource {
             x += sections_side;
         }
 
-    resources
+    Resources { locations }
+    }
+
+    pub fn process_event(&mut self, custom_event: &EventResourceFound) {
+        self.locations.remove(custom_event.index);
     }
 }
+//}}}
 
+//{{{ Monster
 struct Kobold {
     alive: bool,
     pub x: u8,
@@ -219,4 +248,18 @@ impl Kobold {
         if self.alive {
         }
     }
+}
+//}}}
+
+/*
+ * Custom events
+ */
+pub struct EventResourceFound  {index: usize}
+pub struct EventResourceAbsent {}
+
+pub fn init_custom_events(sdl_event: &EventSubsystem) {
+    sdl_event.register_custom_event::<EventResourceFound>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventResourceAbsent>()
+        .expect("Failed to register event.");
 }
