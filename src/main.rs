@@ -9,7 +9,8 @@ use sdl2::keyboard::Keycode;
 use sevend::map::Map;
 use sevend::objects::{Player, Resources};
 use sevend::objects::EventResourceFound;
-use sevend::objects::EventResourceAbsent;
+use sevend::objects::EventResourceGone;
+use sevend::objects::EventResourceRefill;
 use sevend::graphics::*;
 
 fn main() {
@@ -59,18 +60,36 @@ fn main() {
                     },
                 ref custom_event if custom_event.is_user_event()
                     => {
-                        if let Some(resource_absent) = custom_event
-                            .as_user_event_type::<EventResourceAbsent>()
+                        //{{{ EventResourceRefill
+                        if let Some(resource_refill) = custom_event
+                            .as_user_event_type::<EventResourceRefill>()
                         {
-                            println!("No oil!");
+                            if resource_refill.success {
+                                textline.set_situation("resource_refill");
+                            } else {
+                                textline.set_situation("resource_absent");
+                            }
                         }
+                        //}}}
+
+                        //{{{ EventResourceFound
                         if let Some(resource_found) = custom_event
                             .as_user_event_type::<EventResourceFound>()
                         {
-                            println!("Found lamp!");
                             resources.process_event(&resource_found);
                             player.add_view_resource_count();
+
+                            textline.set_any_situation("resource_found");
                         }
+                        //}}}
+
+                        //{{{ EventResourceGone
+                        if let Some(resource_gone) = custom_event
+                            .as_user_event_type::<EventResourceGone>()
+                        {
+                            textline.set_any_situation("resource_gone");
+                        }
+                        //}}}
                     },
                 _ => ()
             }

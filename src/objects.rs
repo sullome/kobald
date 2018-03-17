@@ -62,10 +62,10 @@ impl Player {
     }
     //}}}
 
-    pub fn refill_view_resource(&mut self) -> Result<(), &'static str> //{{{
+    pub fn refill_view_resource(&mut self) -> Result<(), ()> //{{{
     {
         match self.view_resource_count {
-            0 => Err("I don't have enough oil."),
+            0 => Err(()),
             _ => {
                 self.view_resource = self.view_resource_max;
                 self.view_resource_count -= 1;
@@ -122,41 +122,76 @@ impl Player {
         event_system: &EventSubsystem
     )
     {
+        // Save some fields before update.
+        // Needed for after-update checks
+        let previous_view_resource = self.view_resource;
+
+        //{{{ Reaction to keypresses
         match *key {
             // Movement
-            Keycode::Up    | Keycode::Kp8
+            Keycode::Up
+            | Keycode::Kp8
+            | Keycode::Num8
                 => self.move_relative(0, -1, map),
-            Keycode::Down  | Keycode::Kp2
+            Keycode::Down
+            | Keycode::Kp2
+            | Keycode::Num2
                 => self.move_relative(0, 1, map),
-            Keycode::Left  | Keycode::Kp4
+            Keycode::Left
+            | Keycode::Kp4
+            | Keycode::Num4
                 => self.move_relative(-1, 0, map),
-            Keycode::Right | Keycode::Kp6
+            Keycode::Right
+            | Keycode::Kp6
+            | Keycode::Num6
                 => self.move_relative(1, 0, map),
             Keycode::Kp1
+            | Keycode::Num1
                 => self.move_relative(-1, 1, map),
             Keycode::Kp3
+            | Keycode::Num3
                 => self.move_relative(1, 1, map),
             Keycode::Kp7
+            | Keycode::Num7
                 => self.move_relative(-1, -1, map),
             Keycode::Kp9
+            | Keycode::Num9
                 => self.move_relative(1, -1, map),
 
             // Actions
             Keycode::R
-                => if let Err(_) = self.refill_view_resource() {
-                    let resource_absent = EventResourceAbsent{};
-                    event_system.push_custom_event(resource_absent).unwrap();
+                => {
+                    let refill_result_event = EventResourceRefill {
+                        success: match self.refill_view_resource() {
+                            Ok(_)  => true,
+                            Err(_) => false
+                        }
+                    };
+                    event_system
+                        .push_custom_event(refill_result_event)
+                        .unwrap();
                 },
 
             _   => return
         }
+        //}}}
 
+        //{{{ Checks of new state
+
+        // Was resource found?
         for (i, &resource_location) in resources.locations.iter().enumerate() {
             if resource_location == (self.x, self.y) {
                 let resource_found = EventResourceFound{index: i};
                 event_system.push_custom_event(resource_found).unwrap();
             }
         }
+
+        // Was resource gone?
+        if previous_view_resource > 0 && self.view_resource == 0 {
+            let resource_gone = EventResourceGone{};
+            event_system.push_custom_event(resource_gone).unwrap();
+        }
+        //}}}
     }
     //}}}
 }
@@ -255,11 +290,14 @@ impl Kobold {
  * Custom events
  */
 pub struct EventResourceFound  {index: usize}
-pub struct EventResourceAbsent {}
+pub struct EventResourceGone   {}
+pub struct EventResourceRefill {pub success: bool}
 
 pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceFound>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventResourceAbsent>()
+    sdl_event.register_custom_event::<EventResourceGone>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventResourceRefill>()
         .expect("Failed to register event.");
 }

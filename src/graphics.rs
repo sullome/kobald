@@ -12,6 +12,7 @@ use sdl2::EventPump;
 use sdl2::EventSubsystem;
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read; // For Blob
+use rand::{Rng, thread_rng};
 
 use super::map::Map;
 use super::objects::Player;
@@ -95,8 +96,41 @@ impl TextLine {
         }
     }
 
-    fn set_text(&mut self, situation: &String) {
-        self.situation = situation.clone();
+    pub fn set_situation(&mut self, situation: &str) {
+        self.situation = String::from(situation);
+    }
+
+    pub fn set_any_situation(&mut self, situation: &str) {
+        // Setting up database connection
+        let db_path: PathBuf = [".", DB_FILENAME].iter().collect();
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
+        let db_connection = Connection::open_with_flags(&db_path, flags)
+            .expect("Cannot read data.");
+
+        let situation_in_q: String = String::from(situation) + "%";
+        let query: String = String::from("select situation ")
+            + "from messages "
+            + "where situation like ?;"
+            ;
+        let mut statement = db_connection.prepare(&query).unwrap();
+        let situations: Vec<String> = statement.query_map(
+            &[&situation_in_q],
+            |row| {
+                let value: String = row.get(0);
+                value
+            }
+        )
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect()
+        ;
+
+        let situation_sample: String = match thread_rng().choose(&situations){
+            Some(sit) => sit.clone(),
+            None      => String::from("empty")
+        };
+
+        self.situation = situation_sample;
     }
 }
 
@@ -197,7 +231,10 @@ impl Drawable for TextLine //{{{
         canvas: &mut Canvas<Window>
     )
     {
-        let text_texture: &Texture = &textures[&self.situation];
+        let text_texture: &Texture = match textures.get(&self.situation) {
+            Some(value) => value,
+            None        => &textures["empty"]
+        };
         let place: Rect = Rect::new(
             0, 0,
             text_texture.query().width,
@@ -336,6 +373,11 @@ pub fn init_textures<T> //{{{
     //}}}
 
     //{{{ Messages
+    let max_line_width: u32 = match get_setting("textline_max_width") {
+        Some(value) => value,
+        None        => 100
+    };
+
     // Initializing SDL TTF
     let sdl_ttf = sdl2::ttf::init()
         .expect("SDL TTF initialization error.");
@@ -384,7 +426,7 @@ pub fn init_textures<T> //{{{
             // Rendering message
             let text_surface = font
                 .render(&message)
-                .blended(Color::RGB(0, 0, 0))
+                .blended_wrapped(Color::RGB(0, 0, 0), max_line_width)
                 .expect("Cannot create text surface.");
             let text_texture = texture_creator
                 .create_texture_from_surface(text_surface)

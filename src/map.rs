@@ -125,70 +125,31 @@ impl Tile {
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
         match Connection::open_with_flags(&db_path, flags) {
             Ok(db_connection) => {
-                let query ="select message from messages where situation = ?;";
+                let query ="select message from scenes where scene = ?;";
                 let mut statement = db_connection.prepare(&query).unwrap();
 
-                let messages: Vec<String> = match end_type {
-                    EndType::Start => statement.query_map(
-                        &[&"start"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    EndType::Children => statement.query_map(
-                        &[&"children"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    EndType::Body => statement.query_map(
-                        &[&"body"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    EndType::Lair => statement.query_map(
-                        &[&"lair"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    EndType::Item => statement.query_map(
-                        &[&"item"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    EndType::Rest => statement.query_map(
-                        &[&"rest"],
-                        |row| {
-                            let s:String = row.get(0);
-                            s
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect(),
-                    _ => Vec::new()
-                };
+                let scene: String = String::from(
+                    match end_type {
+                        EndType::Start    => "start",
+                        EndType::Children => "children",
+                        EndType::Body     => "body",
+                        EndType::Lair     => "lair",
+                        EndType::Item     => "item",
+                        EndType::Rest     => "rest"
+                    }
+                );
 
-                let message: String = match rng.choose(&messages){
-                    Some(m) => m.clone(),
-                    None    => return None
+                let message: String = match statement.query_row
+                (
+                    &[&scene],
+                    |row| {
+                        let text: String = row.get(0);
+                        text
+                    }
+                )
+                {
+                    Ok(m)  => m,
+                    Err(_) => String::from("empty")
                 };
 
                 Some(Tile {
