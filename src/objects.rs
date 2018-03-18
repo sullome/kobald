@@ -6,6 +6,7 @@ use rand::{Rng, StdRng};
 use std::path::PathBuf;
 
 use super::map::Map;
+use super::map::TileType;
 use super::get_setting;
 
 use super::DB_FILENAME;
@@ -92,6 +93,7 @@ impl Player {
     //}}}
 
     fn move_relative(&mut self, x_mod: isize, y_mod: isize, map: &Map) //{{{
+        -> Result<(), (usize, usize)>
     {
         let map_size = map.tiles.len() as isize - 1;
         let mut new_x: isize = self.x as isize + x_mod;
@@ -104,11 +106,12 @@ impl Player {
         let new_x: usize = new_x as usize;
         let new_y: usize = new_y as usize;
 
-        if map.tiles[new_x as usize][new_y as usize].passable {
+        if map.tiles[new_x][new_y].passable {
             self.x = new_x;
             self.y = new_y;
-
-            self.drain_view_resource();
+            Ok(())
+        } else {
+            Err((new_x, new_y))
         }
     }
     //}}}
@@ -125,6 +128,7 @@ impl Player {
         // Save some fields before update.
         // Needed for after-update checks
         let previous_view_resource = self.view_resource;
+        let mut move_result: Option<Result<(), (usize, usize)>> = None;
 
         //{{{ Reaction to keypresses
         match *key {
@@ -132,31 +136,31 @@ impl Player {
             Keycode::Up
             | Keycode::Kp8
             | Keycode::Num8
-                => self.move_relative(0, -1, map),
+                => move_result = Some(self.move_relative(0, -1, map)),
             Keycode::Down
             | Keycode::Kp2
             | Keycode::Num2
-                => self.move_relative(0, 1, map),
+                => move_result = Some(self.move_relative(0, 1, map)),
             Keycode::Left
             | Keycode::Kp4
             | Keycode::Num4
-                => self.move_relative(-1, 0, map),
+                => move_result = Some(self.move_relative(-1, 0, map)),
             Keycode::Right
             | Keycode::Kp6
             | Keycode::Num6
-                => self.move_relative(1, 0, map),
+                => move_result = Some(self.move_relative(1, 0, map)),
             Keycode::Kp1
             | Keycode::Num1
-                => self.move_relative(-1, 1, map),
+                => move_result = Some(self.move_relative(-1, 1, map)),
             Keycode::Kp3
             | Keycode::Num3
-                => self.move_relative(1, 1, map),
+                => move_result = Some(self.move_relative(1, 1, map)),
             Keycode::Kp7
             | Keycode::Num7
-                => self.move_relative(-1, -1, map),
+                => move_result = Some(self.move_relative(-1, -1, map)),
             Keycode::Kp9
             | Keycode::Num9
-                => self.move_relative(1, -1, map),
+                => move_result = Some(self.move_relative(1, -1, map)),
 
             // Actions
             Keycode::R
@@ -177,6 +181,29 @@ impl Player {
         //}}}
 
         //{{{ Checks of new state
+
+        // Moved?
+        if let Some(result) = move_result {
+            match result {
+                Ok(_)       => {
+                    self.drain_view_resource();
+
+                    if let TileType::Curiosity
+                        = map.tiles[self.x][self.y].ttype {
+                    }
+                },
+                Err((x, y)) => {
+                    if let TileType::Obstacle = map.tiles[x][y].ttype {
+                        let obstacle_found = EventObstacleFound{
+                            text: map.tiles[x][y].search_text.clone()
+                        };
+                        event_system
+                            .push_custom_event(obstacle_found)
+                            .unwrap();
+                    }
+                },
+            }
+        }
 
         // Was resource found?
         for (i, &resource_location) in resources.locations.iter().enumerate() {
@@ -292,6 +319,7 @@ impl Kobold {
 pub struct EventResourceFound  {index: usize}
 pub struct EventResourceGone   {}
 pub struct EventResourceRefill {pub success: bool}
+pub struct EventObstacleFound  {pub text: String}
 
 pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceFound>()
@@ -299,5 +327,7 @@ pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceGone>()
         .expect("Failed to register event.");
     sdl_event.register_custom_event::<EventResourceRefill>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventObstacleFound>()
         .expect("Failed to register event.");
 }

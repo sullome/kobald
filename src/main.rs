@@ -11,6 +11,7 @@ use sevend::objects::{Player, Resources};
 use sevend::objects::EventResourceFound;
 use sevend::objects::EventResourceGone;
 use sevend::objects::EventResourceRefill;
+use sevend::objects::EventObstacleFound;
 use sevend::graphics::*;
 
 fn main() {
@@ -88,6 +89,14 @@ fn main() {
                             .as_user_event_type::<EventResourceGone>()
                         {
                             textline.set_any_situation("resource_gone");
+                        }
+                        //}}}
+
+                        //{{{ EventObstacleFound
+                        if let Some(obstacle_found) = custom_event
+                            .as_user_event_type::<EventObstacleFound>()
+                        {
+                            textline.set_situation(&obstacle_found.text);
                         }
                         //}}}
                     },

@@ -30,7 +30,8 @@ insert into game_settings(setting, value) values
     ('textline_font_size', 22),
     ('visible_distance',    3),
     ('resource_max',       10),
-    ('resource_start',      3);
+    ('resource_start',    100),
+    ('obstacle_max',        8);
 insert into fonts(name, font) values
     ('DejaVu Serif', readfile('data/DejaVuSerif.ttf'));
 insert into images(name, image) values

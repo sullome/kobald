@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use rand::{Rng, StdRng};
+use rand::{Rng, StdRng, thread_rng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
 
+use super::get_setting;
 use super::objects::Player;
 
 const CARDS_FIELDS_COUNT: usize = 18;
@@ -67,43 +68,30 @@ impl Tile {
             _ => true,
         };
 
-        let query = "select message from messages where situation = ?;";
-        let mut statement = db_conn.prepare(&query).unwrap();
+        let message: String = match tile_type {
+            TileType::Obstacle => {
+                let query = String::from("select situation ")
+                    + "from messages "
+                    + "where situation like ?;"
+                    ;
+                let mut statement = db_conn.prepare(&query).unwrap();
 
-        let messages: Vec<String> = match tile_type {
-            TileType::Wall => statement.query_map(
-                &[&"wall"],
-                |row| {
-                    let s:String = row.get(0);
-                    s
-                }
-            ).unwrap().map(
-                |row| row.unwrap()
-            ).collect(),
-            TileType::Floor => statement.query_map(
-                &[&"floor"],
-                |row| {
-                    let s:String = row.get(0);
-                    s
-                }
-            ).unwrap().map(
-                |row| row.unwrap()
-            ).collect(),
-            TileType::Obstacle => statement.query_map(
-                &[&"obstacle"],
-                |row| {
-                    let s:String = row.get(0);
-                    s
-                }
-            ).unwrap().map(
-                |row| row.unwrap()
-            ).collect(),
-            _ => Vec::new()
-        };
+                let obstacles: Vec<String> = statement.query_map(
+                    &[&"obstacle%"],
+                    |row| {
+                        let s:String = row.get(0);
+                        s
+                    }
+                ).unwrap().map(
+                    |row| row.unwrap()
+                ).collect();
 
-        let message: String = match rng.choose(&messages){
-            Some(m) => m.clone(),
-            None    => String::from("")
+                match rng.choose(&obstacles) {
+                    Some(obstacle) => obstacle.clone(),
+                    None           => String::from("empty")
+                }
+            },
+            _ => String::from("empty")
         };
 
         Some(Tile {
@@ -119,50 +107,25 @@ impl Tile {
     pub fn init_curio<T: Rng>
         (end_type: EndType, rng: &mut T) -> Option<Tile>
     {
-        let mut db_path = PathBuf::from(".");
-        db_path.push(DB_FILENAME);
+        let scene: String = String::from(
+            match end_type {
+                EndType::Start    => "start",
+                EndType::Children => "children",
+                EndType::Body     => "body",
+                EndType::Lair     => "lair",
+                EndType::Item     => "item",
+                EndType::Rest     => "rest"
+            }
+        );
 
-        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
-        match Connection::open_with_flags(&db_path, flags) {
-            Ok(db_connection) => {
-                let query ="select message from scenes where scene = ?;";
-                let mut statement = db_connection.prepare(&query).unwrap();
-
-                let scene: String = String::from(
-                    match end_type {
-                        EndType::Start    => "start",
-                        EndType::Children => "children",
-                        EndType::Body     => "body",
-                        EndType::Lair     => "lair",
-                        EndType::Item     => "item",
-                        EndType::Rest     => "rest"
-                    }
-                );
-
-                let message: String = match statement.query_row
-                (
-                    &[&scene],
-                    |row| {
-                        let text: String = row.get(0);
-                        text
-                    }
-                )
-                {
-                    Ok(m)  => m,
-                    Err(_) => String::from("empty")
-                };
-
-                Some(Tile {
-                    ttype: TileType::Curiosity,
-                    passable: true,
-                    visible: false,
-                    curiosity_checked: false,
-                    search_text: message,
-                    icon: String::from("floor.png")
-                })
-            },
-            Err(_) => return None
-        }
+        Some(Tile {
+            ttype: TileType::Curiosity,
+            passable: true,
+            visible: false,
+            curiosity_checked: false,
+            search_text: scene,
+            icon: String::from("floor.png")
+        })
     }
 }
 //}}}
@@ -265,9 +228,50 @@ impl Map {
         );
         let cards_field = generate_field(&mut fields);
         let (tiles, start) = generate_map(&cards_field);
-        Map {
+        let mut map = Map {
             tiles,
             start
+        };
+        map.add_obstacles();
+        map
+    }
+
+    fn add_obstacles(&mut self) {
+        let mut rng = StdRng::new()
+            .expect("Failed to initialize randomness");
+
+        let mut possible_locations: Vec<(usize, usize)> = Vec::new();
+        let map_side = self.tiles.len();
+        for x in 0..map_side {
+            for y in 0..map_side {
+                if let TileType::Floor = self.tiles[x][y].ttype {
+                    possible_locations.push((x, y));
+                }
+            }
+        }
+        rng.shuffle(&mut possible_locations);
+
+        let mut max_obstacles: u8 = match get_setting("obstacle_max") {
+            Some(value) => value,
+            None        => 6
+        };
+        max_obstacles = rng.gen_range(1, max_obstacles);
+
+        let mut db_path = PathBuf::from(".");
+        db_path.push(DB_FILENAME);
+
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
+        let db_conn = Connection::open_with_flags(&db_path, flags).unwrap();
+
+        for obstacle in 0..max_obstacles {
+            if let Some((x, y)) = possible_locations.pop() {
+                let obstacle_tile = Tile::init_regular(
+                    TileType::Obstacle,
+                    &db_conn,
+                    &mut rng
+                ).unwrap();
+                self.tiles[x][y] = obstacle_tile;
+            }
         }
     }
 
