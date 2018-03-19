@@ -32,6 +32,8 @@ fn main() {
     let mut resources = Resources::init(&map, &player);
     map.update(&player);
     sevend::objects::init_custom_events(&event_system);
+    let mut happy_end = false;
+    let mut end = false;
 
     // Init GUI parts
     let mut textline = TextLine::init();
@@ -58,6 +60,10 @@ fn main() {
                     => {
                         if textscene.active {
                             textscene.active = false;
+
+                            if end {
+                                break 'running;
+                            }
                         }
                     },
                 Event::KeyDown{keycode: Some(kcode), ..}
@@ -122,6 +128,17 @@ fn main() {
                         {
                             textscene.active = true;
                             textscene.scene = curio_found.scene;
+                            match textscene.scene.as_str() {
+                                "item" => happy_end = true,
+                                "lair" => if !happy_end {
+                                    end = true;
+                                },
+                                "children" => {
+                                    happy_end = true;
+                                    end = true;
+                                },
+                                _ => ()
+                            }
                         }
                         //}}}
                     },
