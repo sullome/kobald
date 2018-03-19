@@ -27,7 +27,6 @@ pub enum TileType {
 
 #[derive(Copy,Clone)]
 pub enum EndType {
-    Start,
     Children,
     Body,
     Lair,
@@ -109,7 +108,6 @@ impl Tile {
     {
         let scene: String = String::from(
             match end_type {
-                EndType::Start    => "start",
                 EndType::Children => "children",
                 EndType::Body     => "body",
                 EndType::Lair     => "lair",
@@ -533,10 +531,6 @@ fn generate_map //{{{
     let mut random_number_generator = StdRng::new()
         .expect("Failed to read randomness from operating system.");
 
-    let start_tile = Tile::init_curio(
-        EndType::Start,
-        &mut random_number_generator
-    ).unwrap();
     let mut ends: Vec<Tile> = vec![
         Tile::init_curio(EndType::Children, &mut random_number_generator).unwrap(),
         Tile::init_curio(EndType::Lair, &mut random_number_generator).unwrap(),
@@ -549,7 +543,6 @@ fn generate_map //{{{
     random_number_generator.shuffle(&mut ends);
 
     let (start_x, start_y) = possible_locations.pop().unwrap();
-    map[start_x][start_y] = start_tile;
 
     for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
         map[x][y] = end.clone();

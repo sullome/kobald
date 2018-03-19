@@ -12,6 +12,7 @@ use sevend::objects::EventResourceFound;
 use sevend::objects::EventResourceGone;
 use sevend::objects::EventResourceRefill;
 use sevend::objects::EventObstacleFound;
+use sevend::objects::EventCurioFound;
 use sevend::graphics::*;
 
 fn main() {
@@ -36,12 +37,14 @@ fn main() {
     let mut textline = TextLine::init();
     let background_image = Background::init();
     let mut resource_counter = ResourceCounter::init(&player);
+    let mut textscene = TextScene::init();
 
     // Init GUI elements
     let background = GUIElement::init("bg");
     let gamearea = GUIElement::init("map");
     let text = GUIElement::init("text");
     let resource_place = GUIElement::init("flask");
+    let scene = GUIElement::init("scene");
 
     'running: loop {
         // Events handling
@@ -49,15 +52,28 @@ fn main() {
             match event {
                 Event::Quit{..}
                     => {
-                        println!("QUIT");
                         break 'running;
+                    },
+                Event::KeyDown{keycode: Some(Keycode::Return), ..}
+                    => {
+                        if textscene.active {
+                            textscene.active = false;
+                        }
                     },
                 Event::KeyDown{keycode: Some(kcode), ..}
                     => {
-                        // Update game
-                        player.update(&kcode, &map, &resources, &event_system);
-                        map.update(&player);
-                        resource_counter.update(&player);
+                        if !textscene.active {
+                            // Update game
+                            player.update(
+                                &kcode,
+                                &map,
+                                &resources,
+                                &event_system
+                            );
+                            map.update(&player);
+                            resource_counter.update(&player);
+                            textline.update();
+                        }
                     },
                 ref custom_event if custom_event.is_user_event()
                     => {
@@ -99,6 +115,15 @@ fn main() {
                             textline.set_situation(&obstacle_found.text);
                         }
                         //}}}
+
+                        //{{{ EventCurioFound
+                        if let Some(curio_found) = custom_event
+                            .as_user_event_type::<EventCurioFound>()
+                        {
+                            textscene.active = true;
+                            textscene.scene = curio_found.scene;
+                        }
+                        //}}}
                     },
                 _ => ()
             }
@@ -116,14 +141,21 @@ fn main() {
             &textures, &mut canvas,
             vec![&map, &player]
         );
-        text.draw(
-            &textures, &mut canvas,
-            vec![&textline]
-        );
         resource_place.draw(
             &textures, &mut canvas,
             vec![&resource_counter]
         );
+        if textscene.active {
+            scene.draw(
+                &textures, &mut canvas,
+                vec![&textscene]
+            );
+        } else {
+            text.draw(
+                &textures, &mut canvas,
+                vec![&textline]
+            );
+        }
 
         // Stop drawing
         canvas.present();

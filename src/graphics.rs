@@ -88,16 +88,31 @@ impl GUIElement {
 
 pub struct TextLine {
     situation: String,
+    time_max: u8,
+    time: u8
 }
 impl TextLine {
     pub fn init() -> TextLine {
+        let time_max: u8 = match get_setting("textline_time_max") {
+            Some(value) => value,
+            None        => 3
+        };
         TextLine {
             situation: String::from("start"),
+            time_max,
+            time: time_max
+        }
+    }
+
+    pub fn update(&mut self) {
+        if self.time > 0 {
+            self.time -= 1;
         }
     }
 
     pub fn set_situation(&mut self, situation: &str) {
         self.situation = String::from(situation);
+        self.time = self.time_max;
     }
 
     pub fn set_any_situation(&mut self, situation: &str) {
@@ -126,7 +141,10 @@ impl TextLine {
         ;
 
         let situation_sample: String = match thread_rng().choose(&situations){
-            Some(sit) => sit.clone(),
+            Some(sit) => {
+                self.time = self.time_max;
+                sit.clone()
+            },
             None      => String::from("empty")
         };
 
@@ -159,6 +177,19 @@ impl ResourceCounter {
 
     pub fn update(&mut self, player: &Player) {
         self.state = player.get_resource_state()
+    }
+}
+
+pub struct TextScene {
+    pub active: bool,
+    pub scene: String
+}
+impl TextScene {
+    pub fn init() -> TextScene {
+        TextScene {
+            active: false,
+            scene: String::from("empty")
+        }
     }
 }
 
@@ -232,7 +263,13 @@ impl Drawable for TextLine //{{{
     )
     {
         let text_texture: &Texture = match textures.get(&self.situation) {
-            Some(value) => value,
+            Some(value) => {
+                if self.time > 0 {
+                    value
+                } else {
+                    &textures["empty"]
+                }
+            },
             None        => &textures["empty"]
         };
         let place: Rect = Rect::new(
@@ -307,6 +344,35 @@ impl Drawable for ResourceCounter //{{{
     }
 }
 //}}}
+impl Drawable for TextScene //{{{
+{
+    fn draw
+    (
+        &self,
+        textures: &HashMap<String, Texture>,
+        canvas: &mut Canvas<Window>
+    )
+    {
+        // Background
+        let bg_texture: &Texture = &textures["scene_bg.png"];
+        let bg_place: Rect = Rect::new(
+            0, 0,
+            bg_texture.query().width, bg_texture.query().height
+        );
+        canvas.copy(bg_texture, None, bg_place)
+            .expect("Background texture rendering error!");
+
+        // Text
+        let fg_texture: &Texture = &textures[&self.scene];
+        let fg_place: Rect = Rect::new(
+            5, 5,
+            fg_texture.query().width, fg_texture.query().height
+        );
+        canvas.copy(fg_texture, None, fg_place)
+            .expect("Text texture rendering error!");
+    }
+}
+//}}}
 
 /*
  * This function initializes textures for further usage by *draw* functions.
@@ -373,11 +439,6 @@ pub fn init_textures<T> //{{{
     //}}}
 
     //{{{ Messages
-    let max_line_width: u32 = match get_setting("textline_max_width") {
-        Some(value) => value,
-        None        => 100
-    };
-
     // Initializing SDL TTF
     let sdl_ttf = sdl2::ttf::init()
         .expect("SDL TTF initialization error.");
@@ -408,6 +469,11 @@ pub fn init_textures<T> //{{{
         .expect("Cannot load font from a stream.");
 
     // Rendering messages with the selected font
+    let max_line_width: u32 = match get_setting("textline_max_width") {
+        Some(value) => value,
+        None        => 100
+    };
+
     let query = String::from("select * from ") + DB_MESSAGES_TABLE + ";";
     let mut statement = db_connection.prepare(&query)
         .expect("Cannot prepary query.");
@@ -433,6 +499,40 @@ pub fn init_textures<T> //{{{
                 .expect("Cannot render text.");
 
             textures.insert(situation, text_texture);
+        }
+    }
+
+    // Rendering scene messages with the selected font
+    let max_line_width: u32 = match get_setting("textscene_max_width") {
+        Some(value) => value,
+        None        => 100
+    };
+
+    let query = String::from("select * from scenes;");
+    let mut statement = db_connection.prepare(&query)
+        .expect("Cannot prepary query.");
+
+    for maybe_row_content in statement.query_map
+    (
+        &[],
+        |row| {
+            let scene: String = row.get(0);
+            let text:  String = row.get(1);
+            (scene, text)
+        }
+    ).unwrap()
+    {
+        if let Ok((scene, text)) = maybe_row_content {
+            // Rendering message
+            let text_surface = font
+                .render(&text)
+                .blended_wrapped(Color::RGB(0, 0, 0), max_line_width)
+                .expect("Cannot create text surface.");
+            let text_texture = texture_creator
+                .create_texture_from_surface(text_surface)
+                .expect("Cannot render text.");
+
+            textures.insert(scene, text_texture);
         }
     }
     //}}}

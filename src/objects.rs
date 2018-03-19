@@ -190,6 +190,10 @@ impl Player {
 
                     if let TileType::Curiosity
                         = map.tiles[self.x][self.y].ttype {
+                        let curio_found = EventCurioFound {
+                            scene: map.tiles[self.x][self.y].search_text.clone()
+                        };
+                        event_system.push_custom_event(curio_found).unwrap();
                     }
                 },
                 Err((x, y)) => {
@@ -320,6 +324,7 @@ pub struct EventResourceFound  {index: usize}
 pub struct EventResourceGone   {}
 pub struct EventResourceRefill {pub success: bool}
 pub struct EventObstacleFound  {pub text: String}
+pub struct EventCurioFound     {pub scene: String}
 
 pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceFound>()
@@ -329,5 +334,7 @@ pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceRefill>()
         .expect("Failed to register event.");
     sdl_event.register_custom_event::<EventObstacleFound>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventCurioFound>()
         .expect("Failed to register event.");
 }
