@@ -52,7 +52,9 @@ insert into scenes(scene, message) values
     ('rest', 'A dead end. But I can see the sun through the cracks above. How much time have passed since I entered this forgotten mines?.. My legs hurt and I am starving a little. But it is even worse for children. I must find them before dark. Grandfather told me some stories about this mines… Yes, I think I know where to seek my grandchildren.'),
     ('item', 'What is this place? And a chest? What such curious chest is doing in this mine? Ah! A human heart is inside! It is pierced with a rusty needle and is rotten… and smells horribly! I should close the lid. Oh… what was that?! I accidentally touched the needle and it crumbled to dust, and a horrible roar echoed through the mines… I need to hurry and find children before it is too late!'),
     ('lair', 'What is this horrible place? Looks like a lair of some beast… those bones. There are piles of them! Wait… all of them are human!..'),
-    ('children', 'Children! My grandchildren, I found you! Please forgive me, forgive me for being rude. Come back home now, granny will make us all a dinner and you will tell me all about your adventures.');
+    ('children', 'Children! My grandchildren, I found you! Please forgive me, forgive me for being rude. Come back home now, granny will make us all a dinner and you will tell me all about your adventures.'),
+    ('end_bad', 'Game Over'),
+    ('end_good', 'You Succeed!');
 insert into messages(situation, message) values
     ('start', 'I must find my grandchildren as fast as I can! Onward!'),
     ('resource_found1', 'It seems miners forgot full bottle of oil here.'),

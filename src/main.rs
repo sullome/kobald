@@ -61,8 +61,17 @@ fn main() {
                         if textscene.active {
                             textscene.active = false;
 
-                            if end {
+                            if textscene.scene.starts_with("end_") {
                                 break 'running;
+                            }
+
+                            if end {
+                                textscene.active = true;
+                                textscene.scene = if happy_end {
+                                    String::from("end_good")
+                                } else {
+                                    String::from("end_bad")
+                                }
                             }
                         }
                     },
