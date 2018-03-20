@@ -18,6 +18,9 @@ use sevend::graphics::*;
 fn main() {
     // Initializing SDL2 variables
     let (mut canvas, mut eventpump, event_system) = init_sdl2();
+    sdl2::mixer::open_audio(44_100, sdl2::mixer::AUDIO_S16LSB, sdl2::mixer::DEFAULT_CHANNELS, 1_024);
+    let _sdl_mixer = sdl2::mixer::init(sdl2::mixer::INIT_MP3)
+        .expect("SDL Mixer initialization error.");
 
     // Init textures
     let texture_creator = canvas.texture_creator();

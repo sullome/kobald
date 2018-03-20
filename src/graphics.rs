@@ -557,12 +557,12 @@ pub fn init_sdl2
         .expect("SDL initialization error.");
     let sdl_video = sdl_context.video()
         .expect("SDL video subsystem initialization error.");
-    let _sdl_image = sdl2::image::init(sdl2::image::INIT_PNG)
-        .expect("SDL Image initialization error.");
     let sdl_eventpump = sdl_context.event_pump()
         .expect("SDL Event Pump initialization error.");
     let sdl_event = sdl_context.event()
         .expect("SDL Event subsystem initialization error.");
+    let _sdl_image = sdl2::image::init(sdl2::image::INIT_PNG)
+        .expect("SDL Image initialization error.");
 
     // Init main window
     let window = sdl_video.window(&game_name, 10, 10)

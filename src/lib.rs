@@ -35,6 +35,7 @@ pub fn get_setting<T: FromSql>
 pub mod objects;
 pub mod map;
 pub mod graphics;
+pub mod sound;
 
 #[cfg(test)]
 mod tests {
