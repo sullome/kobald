@@ -4,6 +4,8 @@ create table images(name TEXT, image BLOB);
 create table fonts(name TEXT, font BLOB);
 create table messages(situation TEXT, message TEXT);
 create table scenes(scene TEXT, message TEXT);
+create table musics(name TEXT, music BLOB);
+create table sound_effects(name TEXT, effect BLOB);
 create table game_settings(setting TEXT, value NUMERIC);
 --}}}
 
@@ -47,6 +49,12 @@ insert into images(name, image) values
     ('flask.png',    readfile('data/icons/flask.png') ),
     ('map.png',      readfile('data/map.png')         ),
     ('scene_bg.png', readfile('data/scene_bg.png')    );
+insert into musics(name, music) values
+    ('la_femme.mp3', readfile('data/sounds/la_femme.mp3'));
+insert into sound_effects(name, effect) values
+    ('match.wav',   readfile('data/sounds/match_out.wav')    ),
+    ('fizzing.wav', readfile('data/sounds/fizzing.wav')      ),
+    ('shout.wav',   readfile('data/sounds/monster_shout.wav'));
 insert into scenes(scene, message) values
     ('body', 'Oh no… I heard about this from my grandfather. Decades ago this mine was closed because of evil spirit killing miners. Wait, what is that? A note in his hand. «Seek the cursed item. Put a rusty needle out from the rotten heart to free him from his curse.» Looks like he sought something before he died in this cave in. Rest in peace, dead miner.'),
     ('rest', 'A dead end. But I can see the sun through the cracks above. How much time have passed since I entered this forgotten mines?.. My legs hurt and I am starving a little. But it is even worse for children. I must find them before dark. Grandfather told me some stories about this mines… Yes, I think I know where to seek my grandchildren.'),

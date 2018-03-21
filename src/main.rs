@@ -1,10 +1,19 @@
 extern crate sevend;
 extern crate sdl2;
+extern crate rusqlite;
 
 use std::time::Duration;
+use std::path::PathBuf;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::mixer::{DEFAULT_FORMAT, DEFAULT_CHANNELS};
+use sdl2::mixer::INIT_MP3;
+use sdl2::rwops::RWops;
+use sdl2::mixer::LoaderRWops;
+use sdl2::mixer::Music;
+use rusqlite::{Connection, OpenFlags, DatabaseName};
+use std::io::Read; // For Blob
 
 use sevend::map::Map;
 use sevend::objects::{Player, Resources};
@@ -13,18 +22,50 @@ use sevend::objects::EventResourceGone;
 use sevend::objects::EventResourceRefill;
 use sevend::objects::EventObstacleFound;
 use sevend::objects::EventCurioFound;
-use sevend::graphics::*;
+use sevend::graphics;
+use sevend::graphics::{GUIElement, Drawable};
+use sevend::graphics::{TextLine, Background, ResourceCounter, TextScene};
+use sevend::graphics::{init_textures, configure_window};
+use sevend::sound;
+
+use sevend::DB_FILENAME;
 
 fn main() {
     // Initializing SDL2 variables
-    let (mut canvas, mut eventpump, event_system) = init_sdl2();
-    sdl2::mixer::open_audio(44_100, sdl2::mixer::AUDIO_S16LSB, sdl2::mixer::DEFAULT_CHANNELS, 1_024);
-    let _sdl_mixer = sdl2::mixer::init(sdl2::mixer::INIT_MP3)
-        .expect("SDL Mixer initialization error.");
+    let sdl_context = sdl2::init()
+        .expect("SDL initialization error.");
 
     // Init textures
+    let mut canvas = graphics::init(&sdl_context);
     let texture_creator = canvas.texture_creator();
     let textures = init_textures(&texture_creator);
+
+    // Init sounds
+    let _sdl_audio = sdl_context.audio()
+        .expect("SDL AudioSubsystem initialization failed");
+
+    let chunk_size = 1_024;
+    let frequency = 44_100;
+    sdl2::mixer::open_audio(
+        frequency,
+        DEFAULT_FORMAT,
+        DEFAULT_CHANNELS,
+        chunk_size
+    ).expect("Failed to open audio device");
+
+    let _sdl_mixer_context = sdl2::mixer::init(INIT_MP3)
+        .expect("SDL Mixer initialization failed");
+
+    sdl2::mixer::allocate_channels(2);
+
+    let effects = sound::load_sounds();
+
+    // Init events
+    let mut sdl_eventpump = sdl_context.event_pump()
+        .expect("SDL Event Pump initialization error.");
+    let sdl_event = sdl_context.event()
+        .expect("SDL Event subsystem initialization error.");
+    sevend::objects::init_custom_events(&sdl_event);
 
     // Updating window configuration
     configure_window(canvas.window_mut(), &textures);
@@ -34,7 +75,6 @@ fn main() {
     let mut player = Player::init(map.start.0, map.start.1);
     let mut resources = Resources::init(&map, &player);
     map.update(&player);
-    sevend::objects::init_custom_events(&event_system);
     let mut happy_end = false;
     let mut end = false;
 
@@ -51,9 +91,30 @@ fn main() {
     let resource_place = GUIElement::init("flask");
     let scene = GUIElement::init("scene");
 
+    // Play background music
+    let db_path: PathBuf = [".", DB_FILENAME].iter().collect();
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
+    let db_connection = Connection::open_with_flags(&db_path, flags)
+        .expect("Cannot read data");
+    let mut music_blob = db_connection.blob_open(
+        DatabaseName::Main,
+        "musics",
+        "music",
+        1,
+        true                // Read-Only
+    ).expect("Cannot read image blob.");
+    let mut music_bytes: Vec<u8> = Vec::new();
+    music_blob.read_to_end(&mut music_bytes)
+        .expect("Cannot read image bytes.");
+    let music_stream = RWops::from_bytes(&music_bytes)
+        .expect("Cannot open image bytes as a stream.");
+    let music = music_stream.load_music()
+        .expect("Cannot load music");
+    music.play(-1);
+
     'running: loop {
         // Events handling
-        for event in eventpump.poll_iter() {
+        for event in sdl_eventpump.poll_iter() {
             match event {
                 Event::Quit{..}
                     => {
@@ -86,7 +147,7 @@ fn main() {
                                 &kcode,
                                 &map,
                                 &resources,
-                                &event_system
+                                &sdl_event
                             );
                             map.update(&player);
                             resource_counter.update(&player);
@@ -101,6 +162,7 @@ fn main() {
                         {
                             if resource_refill.success {
                                 textline.set_situation("resource_refill");
+                                sound::play_effect(&effects["match.wav"]);
                             } else {
                                 textline.set_situation("resource_absent");
                             }
@@ -123,6 +185,7 @@ fn main() {
                             .as_user_event_type::<EventResourceGone>()
                         {
                             textline.set_any_situation("resource_gone");
+                            sound::play_effect(&effects["fizzing.wav"]);
                         }
                         //}}}
 
@@ -141,7 +204,10 @@ fn main() {
                             textscene.active = true;
                             textscene.scene = curio_found.scene;
                             match textscene.scene.as_str() {
-                                "item" => happy_end = true,
+                                "item" => {
+                                    happy_end = true;
+                                    sound::play_effect(&effects["shout.wav"]);
+                                },
                                 "lair" => if !happy_end {
                                     end = true;
                                 },

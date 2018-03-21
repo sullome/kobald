@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 
 use sdl2;
+use sdl2::Sdl;
 use sdl2::rwops::RWops;
 use sdl2::image::ImageRWops;
 use sdl2::render::{TextureCreator, Texture, Canvas, RenderTarget};
@@ -544,8 +545,8 @@ pub fn init_textures<T> //{{{
 /*
  * This function initializes SDL2 window
  */
-pub fn init_sdl2
-    () -> (Canvas<Window>, EventPump, EventSubsystem)
+pub fn init
+    (sdl_context: &Sdl) -> Canvas<Window>
 {
     let game_name: String = match get_setting("game_name") {
         Some(name) => name,
@@ -553,14 +554,8 @@ pub fn init_sdl2
     };
 
     // Init SDL2 and it's subsystems
-    let sdl_context = sdl2::init()
-        .expect("SDL initialization error.");
     let sdl_video = sdl_context.video()
         .expect("SDL video subsystem initialization error.");
-    let sdl_eventpump = sdl_context.event_pump()
-        .expect("SDL Event Pump initialization error.");
-    let sdl_event = sdl_context.event()
-        .expect("SDL Event subsystem initialization error.");
     let _sdl_image = sdl2::image::init(sdl2::image::INIT_PNG)
         .expect("SDL Image initialization error.");
 
@@ -578,7 +573,7 @@ pub fn init_sdl2
     canvas.clear();
     canvas.present();
 
-    (canvas, sdl_eventpump, sdl_event)
+    canvas
 }
 
 pub fn configure_window
