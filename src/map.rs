@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use rand::{Rng, StdRng, thread_rng};
+use rand::{Rng, StdRng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
+use pathfinding::astar::astar;
 
 use super::get_setting;
 use super::objects::Player;
@@ -232,6 +233,58 @@ impl Map {
         };
         map.add_obstacles();
         map
+    }
+
+    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
+        -> bool
+    {
+        let maybe_path = astar(
+            start,
+            |location| {
+                let mut neighbours = self.get_neighbours(location);
+                neighbours.retain(
+                    |loc| {
+                        let &((x, y), _) = loc;
+                        self.tiles[x][y].passable
+                    }
+                );
+                neighbours
+            },
+            |location| self.get_distance(location, end),
+            |location| *location == *end
+        );
+
+        match maybe_path {
+            Some(_) => true,
+            None    => false,
+        }
+    }
+
+    fn get_neighbours(&self, location: &(usize, usize))
+        -> Vec<((usize, usize), u8)>
+    {
+        let &(lx, ly) = location;
+        let min_x = lx.max(0);
+        let min_y = ly.max(0);
+        let mut neighbours: Vec<((usize, usize), u8)> = Vec::with_capacity(8);
+
+        for x in min_x..(lx + 1) {
+            for y in min_y..(ly + 1) {
+                if (x, y) != *location {
+                    neighbours.push(((x, y), 1));
+                }
+            }
+        }
+
+        neighbours
+    }
+
+    fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
+        -> u8
+    {
+        let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
+        let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
+        ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
     }
 
     fn add_obstacles(&mut self) {

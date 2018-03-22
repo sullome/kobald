@@ -1,6 +1,7 @@
 extern crate rusqlite;
 extern crate rand;
 extern crate sdl2;
+extern crate pathfinding;
 
 use std::path::PathBuf;
 use rusqlite::{Connection, OpenFlags};
