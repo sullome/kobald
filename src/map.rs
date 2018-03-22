@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rand::{Rng, StdRng};
+use rand::{Rng, StdRng, thread_rng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
 use pathfinding::astar::astar;
@@ -8,8 +8,8 @@ use pathfinding::astar::astar;
 use super::get_setting;
 use super::objects::Player;
 
-const CARDS_FIELDS_COUNT: usize = 18;
-const ENDS_COUNT:         usize = 6;
+//const CARDS_FIELDS_COUNT: usize = 18;
+//const ENDS_COUNT:         usize = 6;
 
 const CARDS_MAP_SIDE:     usize = 3;
 
@@ -214,6 +214,7 @@ impl Card {
 //}}}
 
 //{{{ Map
+#[derive(Clone)]
 pub struct Map {
     // Row of columns!!!
     // tiles[x][y]
@@ -221,72 +222,68 @@ pub struct Map {
     pub start: (usize, usize)
 }
 impl Map {
-    pub fn init () -> Map {
+    pub fn init () -> Result<Map, u8> {
         let mut fields = init_cards().expect(
             "Failed to init cards."
         );
-        let cards_field = generate_field(&mut fields);
-        let (tiles, start) = generate_map(&cards_field);
-        let mut map = Map {
-            tiles,
-            start
+
+        let tries_max: u8 = match get_setting("map_max_tries") {
+            Some(value) => value,
+            None        => 100
         };
-        map.add_obstacles();
+
+        let mut map: Result<Map, u8> = Err(tries_max);
+        let mut try_n: u8 = 0;
+        while try_n < tries_max {
+            let cards_field = generate_field(&fields);
+            let (tiles, start) = generate_map(&cards_field);
+            let mut new_map = Map {
+                tiles,
+                start
+            };
+            new_map.add_obstacles();
+
+            if new_map.add_curio().is_ok() {
+                println!("Attempts to generate map: {}", try_n);
+                map = Ok(new_map.clone());
+                break;
+            }
+
+            try_n += 1;
+        }
         map
     }
 
-    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
-        -> bool
-    {
-        let maybe_path = astar(
-            start,
-            |location| {
-                let mut neighbours = self.get_neighbours(location);
-                neighbours.retain(
-                    |loc| {
-                        let &((x, y), _) = loc;
-                        self.tiles[x][y].passable
-                    }
-                );
-                neighbours
-            },
-            |location| self.get_distance(location, end),
-            |location| *location == *end
-        );
+    //{{{ update
+    pub fn update(&mut self, player: &Player) {
+        let start_x = match player.x.checked_sub(
+            player.get_view_distance() as usize
+        ) {
+            Some(x) => x,
+            None    => 0
+        };
+        let start_y = match player.y.checked_sub(
+            player.get_view_distance() as usize
+        ) {
+            Some(y) => y,
+            None    => 0
+        };
 
-        match maybe_path {
-            Some(_) => true,
-            None    => false,
-        }
-    }
+        let mut end_x = player.x + player.get_view_distance() as usize;
+        let mut end_y = player.y + player.get_view_distance() as usize;
+        let map_side = self.tiles.len();
+        if (end_x > map_side) {end_x = map_side};
+        if (end_y > map_side) {end_y = map_side};
 
-    fn get_neighbours(&self, location: &(usize, usize))
-        -> Vec<((usize, usize), u8)>
-    {
-        let &(lx, ly) = location;
-        let min_x = lx.max(0);
-        let min_y = ly.max(0);
-        let mut neighbours: Vec<((usize, usize), u8)> = Vec::with_capacity(8);
-
-        for x in min_x..(lx + 1) {
-            for y in min_y..(ly + 1) {
-                if (x, y) != *location {
-                    neighbours.push(((x, y), 1));
-                }
+        for x in start_x..end_x {
+            for y in start_y..end_y {
+                self.tiles[x][y].visible = true;
             }
         }
-
-        neighbours
     }
+    //}}}
 
-    fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
-        -> u8
-    {
-        let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
-        let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
-        ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
-    }
-
+    //{{{ add_obstacles
     fn add_obstacles(&mut self) {
         let mut rng = StdRng::new()
             .expect("Failed to initialize randomness");
@@ -325,33 +322,129 @@ impl Map {
             }
         }
     }
+    //}}}
 
-    pub fn update(&mut self, player: &Player) {
-        let start_x = match player.x.checked_sub(
-            player.get_view_distance() as usize
-        ) {
+    fn add_curio(&mut self) -> Result<(), &str> {
+        // Finding dead ends
+        let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
+            CARDS_MAP_SIDE * 2 * 4
+        );
+        let max_coord = self.tiles.len();
+        for y in 1..max_coord {
+            // Top row
+            if let TileType::Floor = self.tiles[0][y].ttype {
+                possible_locations.push((0, y));
+            }
+            // Bottom row
+            if let TileType::Floor = self.tiles[max_coord - 1][y].ttype {
+                possible_locations.push((max_coord - 1, y));
+            }
+        }
+        for x in 1..max_coord {
+            // Top row
+            if let TileType::Floor = self.tiles[x][0].ttype {
+                possible_locations.push((x, 0));
+            }
+            // Bottom row
+            if let TileType::Floor = self.tiles[x][max_coord - 1].ttype {
+                possible_locations.push((x, max_coord - 1));
+            }
+        }
+
+        // Only reachable from the starting point should remain
+        possible_locations.retain(
+            |location| self.reachable(&self.start, location)
+        );
+
+        let mut rng = match StdRng::new(){
+            Ok(generator) => generator,
+            Err(_) => return Err("Failed to read system randomness")
+        };
+
+        let mut ends: Vec<Tile> = vec![
+            Tile::init_curio(EndType::Children, &mut rng).unwrap(),
+            Tile::init_curio(EndType::Lair, &mut rng).unwrap(),
+            Tile::init_curio(EndType::Body, &mut rng).unwrap(),
+            Tile::init_curio(EndType::Item, &mut rng).unwrap(),
+            Tile::init_curio(EndType::Rest, &mut rng).unwrap()
+        ];
+
+        if possible_locations.len() < ends.len() {
+            return Err("Not enough reachable locations")
+        }
+
+        rng.shuffle(&mut possible_locations);
+        rng.shuffle(&mut ends);
+
+        for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
+            self.tiles[x][y] = end.clone();
+        }
+
+        Ok(())
+    }
+
+    //{{{ checking reachability
+    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
+        -> bool
+    {
+        let maybe_path = astar(
+            start,
+            |location| {
+                let mut neighbours = self.get_neighbours(location);
+                neighbours.retain(
+                    |loc| {
+                        let &((x, y), _) = loc;
+                        self.tiles[x][y].passable
+                    }
+                );
+                neighbours
+            },
+            |location| self.get_distance(location, end),
+            |location| *location == *end
+        );
+
+        match maybe_path {
+            Some(_) => true,
+            None    => false,
+        }
+    }
+
+    fn get_neighbours(&self, location: &(usize, usize))
+        -> Vec<((usize, usize), u8)>
+    {
+        let max_coord = self.tiles.len();
+        let &(lx, ly) = location;
+        let min_x = match lx.checked_sub(1) {
             Some(x) => x,
             None    => 0
         };
-        let start_y = match player.y.checked_sub(
-            player.get_view_distance() as usize
-        ) {
+        let min_y = match ly.checked_sub(1) {
             Some(y) => y,
             None    => 0
         };
+        let max_x = (lx + 2).min(max_coord);
+        let max_y = (ly + 2).min(max_coord);
+        let mut neighbours: Vec<((usize, usize), u8)> = Vec::with_capacity(8);
 
-        let mut end_x = player.x + player.get_view_distance() as usize;
-        let mut end_y = player.y + player.get_view_distance() as usize;
-        let map_side = self.tiles.len();
-        if (end_x > map_side) {end_x = map_side};
-        if (end_y > map_side) {end_y = map_side};
-
-        for x in start_x..end_x {
-            for y in start_y..end_y {
-                self.tiles[x][y].visible = true;
+        for x in min_x..max_x {
+            for y in min_y..max_y {
+                if (x, y) != *location {
+                    neighbours.push(((x, y), 1));
+                }
             }
         }
+
+        neighbours
     }
+
+    fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
+        -> u8
+    {
+        let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
+        let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
+        ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
+    }
+    //}}}
 }
 //}}}
 
@@ -400,11 +493,12 @@ fn init_cards //{{{
  * This function generates random field of cards
  */
 fn generate_field //{{{
-    (fields: &mut Vec<Card>) -> Vec<Vec<Card>>
+    (fields: &Vec<Card>) -> Vec<Vec<Card>>
 {
+    let mut mut_fields = fields.clone();
     let mut random_number_generator = StdRng::new()
         .expect("Failed to read randomness from operating system.");
-    random_number_generator.shuffle(fields);
+    random_number_generator.shuffle(&mut mut_fields);
 
     // Ends makes a "border" of width equal to 1 card around fields
     // UPD: we do not need such border
@@ -421,72 +515,11 @@ fn generate_field //{{{
 
         // Inserting cards
         for y in 0..cardfield_side {
-            /*
-             * UPD: No border — no need to match anything
-             * match (x, y) {
-             *     // Catch corners
-             *     (0, 0)
-             *         => cardfield[x].push(corner.clone()),
-             *     (coord, 0) | (0, coord)
-             *         if coord == end_index
-             *         => cardfield[x].push(corner.clone()),
-             *     (coordx, coordy)
-             *         if (coordx == end_index && coordy == end_index)
-             *         => cardfield[x].push(corner.clone()),
-
-             *     // Then catch ends
-             *     (0, ..)
-             *         => cardfield[x].push(dead_ends["left"].clone()),
-             *     (.., 0)
-             *         => cardfield[x].push(dead_ends["top"].clone()),
-             *     (coord, ..)
-             *         if coord == end_index
-             *         => cardfield[x].push(dead_ends["right"].clone()),
-             *     (.., coord)
-             *         if coord == end_index
-             *         => cardfield[x].push(dead_ends["bottom"].clone()),
-
-             *     // Now we can catch everything else - main field
-             *     _ => {
-             *         if let Some(field) = fields.pop() {
-             *             cardfield[x].push(field)
-             *         }
-             *     }
-             * }
-             */
-            if let Some(field) = fields.pop() {
+            if let Some(field) = mut_fields.pop() {
                 cardfield[x].push(field)
             }
         }
     }
-
-    // Now placing special ends
-    /*
-     * UPD: no border → no special ends
-     * let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
-     *     CARDS_MAP_SIDE * 4
-     * );
-     * for x in 1..end_index {
-     *     // Top row, without corners
-     *     possible_locations.push((x, 0));
-
-     *     // Bottom row, without corners
-     *     possible_locations.push((x, end_index));
-     * }
-     * for y in 1..end_index {
-     *     // Left column, without corners
-     *     possible_locations.push((0, y));
-
-     *     // Right column, without corners
-     *     possible_locations.push((end_index, y));
-     * }
-
-     * random_number_generator.shuffle(&mut possible_locations);
-     * random_number_generator.shuffle(ends);
-     * for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
-     *     cardfield[x][y] = end.clone();
-     * }
-     */
 
     cardfield
 }
@@ -581,26 +614,8 @@ fn generate_map //{{{
         }
     }
 
-    let mut random_number_generator = StdRng::new()
-        .expect("Failed to read randomness from operating system.");
+    let start = thread_rng().choose(&possible_locations).unwrap().clone();
 
-    let mut ends: Vec<Tile> = vec![
-        Tile::init_curio(EndType::Children, &mut random_number_generator).unwrap(),
-        Tile::init_curio(EndType::Lair, &mut random_number_generator).unwrap(),
-        Tile::init_curio(EndType::Body, &mut random_number_generator).unwrap(),
-        Tile::init_curio(EndType::Item, &mut random_number_generator).unwrap(),
-        Tile::init_curio(EndType::Rest, &mut random_number_generator).unwrap()
-    ];
-
-    random_number_generator.shuffle(&mut possible_locations);
-    random_number_generator.shuffle(&mut ends);
-
-    let (start_x, start_y) = possible_locations.pop().unwrap();
-
-    for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
-        map[x][y] = end.clone();
-    }
-
-    (map, (start_x, start_y))
+    (map, start)
 }
 //}}}

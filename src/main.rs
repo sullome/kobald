@@ -71,7 +71,8 @@ fn main() {
     configure_window(canvas.window_mut(), &textures);
 
     // Init game variables
-    let mut map = Map::init();
+    let mut map = Map::init()
+        .expect("Cannot run the game because of map generation error");
     let mut player = Player::init(map.start.0, map.start.1);
     let mut resources = Resources::init(&map, &player);
     map.update(&player);
