@@ -1,7 +1,7 @@
 use sdl2::EventSubsystem;
 use sdl2::keyboard::Keycode;
 use rusqlite::{Connection, OpenFlags};
-use rand::{Rng, StdRng};
+use rand::{Rng, StdRng, thread_rng};
 
 use std::path::PathBuf;
 
@@ -293,13 +293,13 @@ impl Resources {
 //}}}
 
 //{{{ Monster
-struct Kobold {
+pub struct Kobold {
     alive: bool,
-    pub x: u8,
-    pub y: u8,
+    pub x: usize,
+    pub y: usize,
 }
 impl Kobold {
-    pub fn init() -> Kobold {
+    pub fn init(map: &Map) -> Kobold {
         // Default
         let kobold = Kobold {
             alive: true,
@@ -310,8 +310,21 @@ impl Kobold {
         kobold
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, map: &Map) {
         if self.alive {
+            let mut possible_steps = map.get_neighbours(&(self.x, self.y));
+            possible_steps.retain(
+                |location| {
+                    let &((x, y), _) = location;
+                    map.tiles[x][y].passable
+                }
+            );
+            let maybe_step = thread_rng().choose(&possible_steps);
+            if let Some(&((sx, sy), _)) = maybe_step {
+                println!("Kobold moves: {:?} -> {:?}", (self.x, self.y), (sx, sy));
+                self.x = sx;
+                self.y = sy;
+            }
         }
     }
 }

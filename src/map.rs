@@ -408,8 +408,10 @@ impl Map {
             None    => false,
         }
     }
+    //}}}
 
-    fn get_neighbours(&self, location: &(usize, usize))
+    //{{{ neighbours
+    pub fn get_neighbours(&self, location: &(usize, usize))
         -> Vec<((usize, usize), u8)>
     {
         let max_coord = self.tiles.len();
@@ -436,7 +438,9 @@ impl Map {
 
         neighbours
     }
+    //}}}
 
+    //{{{ distance
     fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
         -> u8
     {

@@ -16,7 +16,7 @@ use rusqlite::{Connection, OpenFlags, DatabaseName};
 use std::io::Read; // For Blob
 
 use sevend::map::Map;
-use sevend::objects::{Player, Resources};
+use sevend::objects::{Player, Resources, Kobold};
 use sevend::objects::EventResourceFound;
 use sevend::objects::EventResourceGone;
 use sevend::objects::EventResourceRefill;
@@ -74,6 +74,7 @@ fn main() {
     let mut map = Map::init()
         .expect("Cannot run the game because of map generation error");
     let mut player = Player::init(map.start.0, map.start.1);
+    let mut monster = Kobold::init(&map);
     let mut resources = Resources::init(&map, &player);
     map.update(&player);
     let mut happy_end = false;
@@ -153,6 +154,7 @@ fn main() {
                             map.update(&player);
                             resource_counter.update(&player);
                             textline.update();
+                            monster.update(&map);
                         }
                     },
                 ref custom_event if custom_event.is_user_event()
