@@ -61,6 +61,7 @@ insert into scenes(scene, message) values
     ('item', 'What is this place? And a chest? What such curious chest is doing in this mine? Ah! A human heart is inside! It is pierced with a rusty needle and is rotten… and smells horribly! I should close the lid. Oh… what was that?! I accidentally touched the needle and it crumbled to dust, and a horrible roar echoed through the mines… I need to hurry and find children before it is too late!'),
     ('lair', 'What is this horrible place? Looks like a lair of some beast… those bones. There are piles of them! Wait… all of them are human!..'),
     ('children', 'Children! My grandchildren, I found you! Please forgive me, forgive me for being rude. Come back home now, granny will make us all a dinner and you will tell me all about your adventures.'),
+    ('monster', 'Wha… Aargh!'),
     ('end_bad', 'Game Over'),
     ('end_good', 'You Succeed!');
 insert into messages(situation, message) values
@@ -82,6 +83,9 @@ insert into messages(situation, message) values
     ('obstacle5', 'Cave in. I need to find another path.'),
     ('obstacle6', 'What a pit, I cannot see the bottom of it.'),
     ('obstacle7', 'A pit that I cannot jump over.'),
+    ('danger1', 'Something huge just flashed by!'),
+    ('danger2', 'My lamp. Something is wrong with it.'),
+    ('danger3', 'I hear strange rustles nearby.'),
     ('empty', ' ');
 insert into cards(tiles) values
     (readfile('data/cards/field1') ),

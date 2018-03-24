@@ -1,0 +1,17 @@
+[package]
+name = "sevend"
+version = "0.1.0"
+authors = ["Sullome <sullome@yandex.com>"]
+build = "build.rs"
+
+[dependencies]
+rand = "0.4"
+pathfinding = "0.7.0"
+
+[dependencies.rusqlite]
+version = "0.13.0"
+features = ["blob", "bundled"]
+
+[dependencies.sdl2]
+version = "0.31.0"
+features = ["image", "ttf", "mixer"]

@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Sullome <sullome@yandex.com>"]
 
 [dependencies]
-rand     = "0.4"
+rand = "0.4"
+pathfinding = "0.7.0"
 
 [dependencies.rusqlite]
 version = "0.13.0"
