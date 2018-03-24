@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 use rand::{Rng, StdRng, thread_rng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
@@ -9,7 +10,7 @@ use super::get_setting;
 use super::objects::Player;
 
 //const CARDS_FIELDS_COUNT: usize = 18;
-//const ENDS_COUNT:         usize = 6;
+const ENDS_COUNT:         usize = 6;
 
 const CARDS_MAP_SIDE:     usize = 3;
 
@@ -219,9 +220,10 @@ pub struct Map {
     // Row of columns!!!
     // tiles[x][y]
     pub tiles: Vec<Vec<Tile>>,
-    pub start: (usize, usize)
+    special_locations: HashMap<String, (usize, usize)>,
 }
 impl Map {
+    //{{{ public
     pub fn init () -> Result<Map, u8> {
         let mut fields = init_cards().expect(
             "Failed to init cards."
@@ -236,10 +238,10 @@ impl Map {
         let mut try_n: u8 = 0;
         while try_n < tries_max {
             let cards_field = generate_field(&fields);
-            let (tiles, start) = generate_map(&cards_field);
+            let tiles = generate_map(&cards_field);
             let mut new_map = Map {
                 tiles,
-                start
+                special_locations: HashMap::with_capacity(ENDS_COUNT),
             };
             new_map.add_obstacles();
 
@@ -283,6 +285,90 @@ impl Map {
     }
     //}}}
 
+    //{{{ neighbours
+    pub fn get_neighbours(&self, location: &(usize, usize))
+        -> Vec<((usize, usize), u8)>
+    {
+        let max_coord = self.tiles.len();
+        let &(lx, ly) = location;
+        let min_x = match lx.checked_sub(1) {
+            Some(x) => x,
+            None    => 0
+        };
+        let min_y = match ly.checked_sub(1) {
+            Some(y) => y,
+            None    => 0
+        };
+        let max_x = (lx + 2).min(max_coord);
+        let max_y = (ly + 2).min(max_coord);
+        let mut neighbours: Vec<((usize, usize), u8)> = Vec::with_capacity(8);
+
+        for x in min_x..max_x {
+            for y in min_y..max_y {
+                if (x, y) != *location {
+                    neighbours.push(((x, y), 1));
+                }
+            }
+        }
+
+        neighbours
+    }
+    //}}}
+
+    //{{{ get_location
+    pub fn get_location(&self, name: &str) -> Option<(usize, usize)> {
+        self.special_locations.get(name).cloned()
+    }
+    //}}}
+
+    //{{{ get_distance
+    pub fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
+        -> u8
+    {
+        let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
+        let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
+        ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
+    }
+    //}}}
+
+    //{{{ get_path_distance
+    pub fn get_path_distance
+        (&self, start: &(usize, usize), end: &(usize, usize))
+        -> Option<u8>
+    {
+        let maybe_path = astar(
+            start,
+            |location| {
+                let mut neighbours = self.get_neighbours(location);
+                neighbours.retain(
+                    |loc| {
+                        let &((x, y), _) = loc;
+                        self.tiles[x][y].passable
+                    }
+                );
+                neighbours
+            },
+            |location| self.get_distance(location, end),
+            |location| *location == *end
+        );
+
+        maybe_path.map(|(_path, cost)| cost)
+    }
+    //}}}
+
+    //{{{ reachable?
+    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
+        -> bool
+    {
+        match self.get_path_distance(start, end) {
+            Some(_) => true,
+            None    => false,
+        }
+    }
+    //}}}
+
+    //}}}
+
     //{{{ add_obstacles
     fn add_obstacles(&mut self) {
         let mut rng = StdRng::new()
@@ -324,6 +410,7 @@ impl Map {
     }
     //}}}
 
+    //{{{ add_curio
     fn add_curio(&mut self) -> Result<(), &str> {
         // Finding dead ends
         let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
@@ -351,17 +438,29 @@ impl Map {
             }
         }
 
-        // Only reachable from the starting point should remain
-        possible_locations.retain(
-            |location| self.reachable(&self.start, location)
-        );
-
         let mut rng = match StdRng::new(){
             Ok(generator) => generator,
             Err(_) => return Err("Failed to read system randomness")
         };
 
-        let mut ends: Vec<Tile> = vec![
+        // Start location
+        let start_index: usize;
+        if possible_locations.len() > 0 {
+            start_index = rng.gen_range(0, possible_locations.len());
+        } else {
+            return Err("Not enough locations to even place one");
+        }
+
+        let start_location = possible_locations.remove(start_index);
+        self.special_locations.insert(String::from("start"), start_location);
+
+        // Only reachable from the starting point should remain
+        possible_locations.retain(
+            |location| self.reachable(&start_location, location)
+        );
+
+
+        let mut ends = [
             Tile::init_curio(EndType::Children, &mut rng).unwrap(),
             Tile::init_curio(EndType::Lair, &mut rng).unwrap(),
             Tile::init_curio(EndType::Body, &mut rng).unwrap(),
@@ -378,75 +477,10 @@ impl Map {
 
         for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
             self.tiles[x][y] = end.clone();
+            self.special_locations.insert(end.search_text.clone(), (x, y));
         }
 
         Ok(())
-    }
-
-    //{{{ checking reachability
-    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
-        -> bool
-    {
-        let maybe_path = astar(
-            start,
-            |location| {
-                let mut neighbours = self.get_neighbours(location);
-                neighbours.retain(
-                    |loc| {
-                        let &((x, y), _) = loc;
-                        self.tiles[x][y].passable
-                    }
-                );
-                neighbours
-            },
-            |location| self.get_distance(location, end),
-            |location| *location == *end
-        );
-
-        match maybe_path {
-            Some(_) => true,
-            None    => false,
-        }
-    }
-    //}}}
-
-    //{{{ neighbours
-    pub fn get_neighbours(&self, location: &(usize, usize))
-        -> Vec<((usize, usize), u8)>
-    {
-        let max_coord = self.tiles.len();
-        let &(lx, ly) = location;
-        let min_x = match lx.checked_sub(1) {
-            Some(x) => x,
-            None    => 0
-        };
-        let min_y = match ly.checked_sub(1) {
-            Some(y) => y,
-            None    => 0
-        };
-        let max_x = (lx + 2).min(max_coord);
-        let max_y = (ly + 2).min(max_coord);
-        let mut neighbours: Vec<((usize, usize), u8)> = Vec::with_capacity(8);
-
-        for x in min_x..max_x {
-            for y in min_y..max_y {
-                if (x, y) != *location {
-                    neighbours.push(((x, y), 1));
-                }
-            }
-        }
-
-        neighbours
-    }
-    //}}}
-
-    //{{{ distance
-    fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
-        -> u8
-    {
-        let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
-        let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
-        ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
     }
     //}}}
 }
@@ -537,7 +571,7 @@ fn generate_map //{{{
 (
     cards_field: &Vec<Vec<Card>>
 )
--> (Vec<Vec<Tile>>, (usize, usize))
+-> Vec<Vec<Tile>>
 {
     // Cards are square and equal. This is a must.
     let corner_card = &cards_field[0][0];
@@ -580,46 +614,11 @@ fn generate_map //{{{
                     let tile_x = offset_x + x;
                     let tile_y = offset_y + y;
                     map[tile_x][tile_y] = tile.clone();
-
-                    /*
-                     * UPD: Not here and not like that
-                     * if let TileType::Start = tile.ttype {
-                     *     start = (tile_x, tile_y);
-                     * }
-                     */
                 }
             }
         }
     }
 
-    // Finding dead ends
-    let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
-        CARDS_MAP_SIDE * 2 * 4
-    );
-    let max_coord = map.len();
-    for y in 1..max_coord {
-        // Top row
-        if let TileType::Floor = map[0][y].ttype {
-            possible_locations.push((0, y));
-        }
-        // Bottom row
-        if let TileType::Floor = map[max_coord - 1][y].ttype {
-            possible_locations.push((max_coord - 1, y));
-        }
-    }
-    for x in 1..max_coord {
-        // Top row
-        if let TileType::Floor = map[x][0].ttype {
-            possible_locations.push((x, 0));
-        }
-        // Bottom row
-        if let TileType::Floor = map[x][max_coord - 1].ttype {
-            possible_locations.push((x, max_coord - 1));
-        }
-    }
-
-    let start = thread_rng().choose(&possible_locations).unwrap().clone();
-
-    (map, start)
+    map
 }
 //}}}

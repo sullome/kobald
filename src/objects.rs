@@ -18,6 +18,9 @@ pub struct Player {
     view_resource_max:   u8,
     view_resource_count: u8,
 
+    in_danger: bool,
+    view_distance_danger:u8,
+
     pub x: usize,
     pub y: usize,
 }
@@ -30,6 +33,10 @@ impl Player {
                 Some(value) => value,
                 None        => 5
             },
+            view_distance_danger:match get_setting("visible_distance_danger") {
+                Some(value) => value,
+                None        => 2
+            },
             view_resource_max:   match get_setting("resource_max") {
                 Some(value) => value,
                 None        => 10
@@ -39,8 +46,9 @@ impl Player {
                 None        => 3
             },
             view_resource: 0,
+            in_danger: false,
             x: start_x,
-            y: start_y
+            y: start_y,
         };
         player.view_resource = player.view_resource_max;
 
@@ -50,9 +58,14 @@ impl Player {
 
     pub fn get_view_distance(&self) -> u8 //{{{
     {
-        match self.view_resource {
-            0 => 0,
-            _ => self.view_distance,
+        if self.view_resource > 0 {
+            if self.in_danger {
+                self.view_distance_danger
+            } else {
+                self.view_distance
+            }
+        } else {
+            0
         }
     }
     //}}}
@@ -121,10 +134,13 @@ impl Player {
         &mut self,
         key: &Keycode,
         map: &Map,
+        monster: &Kobold,
         resources: &Resources,
         event_system: &EventSubsystem
-    )
+    ) -> bool
     {
+        let mut updated: bool = false;
+
         // Save some fields before update.
         // Needed for after-update checks
         let previous_view_resource = self.view_resource;
@@ -174,9 +190,10 @@ impl Player {
                     event_system
                         .push_custom_event(refill_result_event)
                         .unwrap();
+                    updated = true;
                 },
 
-            _   => return
+            _   => return false
         }
         //}}}
 
@@ -195,6 +212,8 @@ impl Player {
                         };
                         event_system.push_custom_event(curio_found).unwrap();
                     }
+
+                    updated = true;
                 },
                 Err((x, y)) => {
                     if let TileType::Obstacle = map.tiles[x][y].ttype {
@@ -204,8 +223,36 @@ impl Player {
                         event_system
                             .push_custom_event(obstacle_found)
                             .unwrap();
+                        updated = true;
                     }
                 },
+            }
+        }
+
+        self.in_danger = false;
+        if monster.alive {
+            // Monster is close?
+            let self_loc = (self.x, self.y);
+            let monster_loc = (monster.x, monster.y);
+
+            if map.get_distance(&self_loc, &monster_loc)
+                < monster.danger_distance
+            {
+                if let Some(dist) = map
+                    .get_path_distance(&self_loc, &monster_loc)
+                {
+                    if dist < monster.danger_distance {
+                        self.in_danger = true;
+                        let in_danger = EventPlayerInDanger{};
+                        event_system.push_custom_event(in_danger).unwrap();
+                    }
+                }
+            }
+
+            // Monster met?
+            if self_loc == monster_loc {
+                let meet_monster = EventPlayerMeetMonster{};
+                event_system.push_custom_event(meet_monster).unwrap();
             }
         }
 
@@ -223,6 +270,8 @@ impl Player {
             event_system.push_custom_event(resource_gone).unwrap();
         }
         //}}}
+
+        updated
     }
     //}}}
 }
@@ -295,17 +344,30 @@ impl Resources {
 //{{{ Monster
 pub struct Kobold {
     alive: bool,
+    danger_distance: u8,
     pub x: usize,
     pub y: usize,
 }
 impl Kobold {
     pub fn init(map: &Map) -> Kobold {
         // Default
-        let kobold = Kobold {
+        let mut kobold = Kobold {
             alive: true,
+            danger_distance: match get_setting("kobold_danger_dist") {
+                Some(value) => value,
+                None        => 5,
+            } + 1,
             x: 0,
             y: 0,
         };
+
+        match map.get_location("lair") {
+            Some((x, y)) => {
+                kobold.x = x;
+                kobold.y = y;
+            },
+            None => kobold.alive = false
+        }
 
         kobold
     }
@@ -321,7 +383,6 @@ impl Kobold {
             );
             let maybe_step = thread_rng().choose(&possible_steps);
             if let Some(&((sx, sy), _)) = maybe_step {
-                println!("Kobold moves: {:?} -> {:?}", (self.x, self.y), (sx, sy));
                 self.x = sx;
                 self.y = sy;
             }
@@ -333,11 +394,13 @@ impl Kobold {
 /*
  * Custom events
  */
-pub struct EventResourceFound  {index: usize}
-pub struct EventResourceGone   {}
-pub struct EventResourceRefill {pub success: bool}
-pub struct EventObstacleFound  {pub text: String}
-pub struct EventCurioFound     {pub scene: String}
+pub struct EventResourceFound     {index: usize}
+pub struct EventResourceGone      {}
+pub struct EventResourceRefill    {pub success: bool}
+pub struct EventObstacleFound     {pub text: String}
+pub struct EventCurioFound        {pub scene: String}
+pub struct EventPlayerInDanger    {}
+pub struct EventPlayerMeetMonster {}
 
 pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventResourceFound>()
@@ -349,5 +412,9 @@ pub fn init_custom_events(sdl_event: &EventSubsystem) {
     sdl_event.register_custom_event::<EventObstacleFound>()
         .expect("Failed to register event.");
     sdl_event.register_custom_event::<EventCurioFound>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventPlayerInDanger>()
+        .expect("Failed to register event.");
+    sdl_event.register_custom_event::<EventPlayerMeetMonster>()
         .expect("Failed to register event.");
 }

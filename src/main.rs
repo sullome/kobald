@@ -22,6 +22,8 @@ use sevend::objects::EventResourceGone;
 use sevend::objects::EventResourceRefill;
 use sevend::objects::EventObstacleFound;
 use sevend::objects::EventCurioFound;
+use sevend::objects::EventPlayerInDanger;
+use sevend::objects::EventPlayerMeetMonster;
 use sevend::graphics;
 use sevend::graphics::{GUIElement, Drawable};
 use sevend::graphics::{TextLine, Background, ResourceCounter, TextScene};
@@ -73,7 +75,8 @@ fn main() {
     // Init game variables
     let mut map = Map::init()
         .expect("Cannot run the game because of map generation error");
-    let mut player = Player::init(map.start.0, map.start.1);
+    let start = map.get_location("start").unwrap();
+    let mut player = Player::init(start.0, start.1);
     let mut monster = Kobold::init(&map);
     let mut resources = Resources::init(&map, &player);
     map.update(&player);
@@ -145,16 +148,18 @@ fn main() {
                     => {
                         if !textscene.active {
                             // Update game
-                            player.update(
+                            if player.update(
                                 &kcode,
                                 &map,
+                                &monster,
                                 &resources,
                                 &sdl_event
-                            );
-                            map.update(&player);
-                            resource_counter.update(&player);
-                            textline.update();
-                            monster.update(&map);
+                            ) {
+                                map.update(&player);
+                                resource_counter.update(&player);
+                                textline.update();
+                                monster.update(&map);
+                            }
                         }
                     },
                 ref custom_event if custom_event.is_user_event()
@@ -220,6 +225,24 @@ fn main() {
                                 },
                                 _ => ()
                             }
+                        }
+                        //}}}
+
+                        //{{{ EventPlayerInDanger
+                        if let Some(_in_danger) = custom_event
+                            .as_user_event_type::<EventPlayerInDanger>()
+                        {
+                            textline.set_any_situation("danger");
+                        }
+                        //}}}
+
+                        //{{{ EventPlayerMeetMonster
+                        if let Some(_meet_monster) = custom_event
+                            .as_user_event_type::<EventPlayerMeetMonster>()
+                        {
+                            textscene.active = true;
+                            textscene.scene = String::from("monster");
+                            end = true;
                         }
                         //}}}
                     },
