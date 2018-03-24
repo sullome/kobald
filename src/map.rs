@@ -246,7 +246,6 @@ impl Map {
             new_map.add_obstacles();
 
             if new_map.add_curio().is_ok() {
-                println!("Attempts to generate map: {}", try_n);
                 map = Ok(new_map.clone());
                 break;
             }
