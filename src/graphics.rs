@@ -6,7 +6,7 @@ use sdl2::Sdl;
 use sdl2::rwops::RWops;
 use sdl2::image::ImageRWops;
 use sdl2::render::{TextureCreator, Texture, Canvas, RenderTarget};
-use sdl2::rect::Rect;
+use sdl2::rect::{Rect, Point};
 use sdl2::video::{Window, WindowPos};
 use sdl2::pixels::Color;
 use sdl2::EventPump;
@@ -84,6 +84,10 @@ impl GUIElement {
 
         // Restoring canvas viewport after all drawings
         canvas.set_viewport(previous_drawarea);
+    }
+
+    pub fn contains(&self, x: i32, y: i32) -> bool {
+        self.drawarea.contains_point(Point::new(x, y))
     }
 }
 
