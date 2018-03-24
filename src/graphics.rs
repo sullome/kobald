@@ -89,6 +89,10 @@ impl GUIElement {
     pub fn contains(&self, x: i32, y: i32) -> bool {
         self.drawarea.contains_point(Point::new(x, y))
     }
+
+    pub fn into_relative(&self, x: i32, y: i32) -> (i32, i32) {
+        (x - self.drawarea.x, y - self.drawarea.y)
+    }
 }
 
 pub struct TextLine {
@@ -232,6 +236,18 @@ impl Drawable for Map //{{{
                         .expect("Texture rendering error!");
                 }
             }
+        }
+
+        // Draw player marks
+        let mark_texture: &Texture = &textures["mark.png"];
+        for mark in self.marks.iter() {
+            let mark_loc = (
+                (mark.0 as u32 * texture_side) as i32,
+                (mark.1 as u32 * texture_side) as i32
+            );
+            place.reposition(mark_loc);
+            canvas.copy(mark_texture, None, place)
+                .expect("Texture rendering error!");
         }
     }
 }

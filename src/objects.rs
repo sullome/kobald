@@ -388,6 +388,10 @@ impl Kobold {
             }
         }
     }
+
+    pub fn die(&mut self) {
+        self.alive = false;
+    }
 }
 //}}}
 

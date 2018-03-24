@@ -44,6 +44,7 @@ insert into fonts(name, font) values
     ('DejaVu Serif', readfile('data/DejaVuSerif.ttf'));
 insert into images(name, image) values
     ('wall.png',     readfile('data/tiles/wall.png')  ),
+    ('mark.png',     readfile('data/tiles/mark.png')  ),
     ('floor.png',    readfile('data/tiles/floor.png') ),
     ('player.png',   readfile('data/icons/player.png')),
     ('flask.png',    readfile('data/icons/flask.png') ),

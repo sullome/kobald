@@ -220,6 +220,7 @@ pub struct Map {
     // Row of columns!!!
     // tiles[x][y]
     pub tiles: Vec<Vec<Tile>>,
+    pub marks: Vec<(usize, usize)>,
     special_locations: HashMap<String, (usize, usize)>,
 }
 impl Map {
@@ -241,6 +242,7 @@ impl Map {
             let tiles = generate_map(&cards_field);
             let mut new_map = Map {
                 tiles,
+                marks: Vec::new(),
                 special_locations: HashMap::with_capacity(ENDS_COUNT),
             };
             new_map.add_obstacles();
@@ -362,6 +364,15 @@ impl Map {
         match self.get_path_distance(start, end) {
             Some(_) => true,
             None    => false,
+        }
+    }
+    //}}}
+
+    //{{{ add_mark
+    pub fn add_mark(&mut self, x: usize, y: usize) {
+        let new_mark = (x, y);
+        if !self.marks.contains(&new_mark) {
+            self.marks.push(new_mark);
         }
     }
     //}}}

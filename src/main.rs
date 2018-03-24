@@ -6,7 +6,8 @@ use std::time::Duration;
 use std::path::PathBuf;
 
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Scancode, NOMOD};
+use sdl2::mouse::MouseButton;
 use sdl2::mixer::{DEFAULT_FORMAT, DEFAULT_CHANNELS};
 use sdl2::mixer::INIT_MP3;
 use sdl2::rwops::RWops;
@@ -144,6 +145,44 @@ fn main() {
                             }
                         }
                     },
+                Event::MouseButtonDown{
+                    mouse_btn: MouseButton::Left,
+                    clicks: 1,
+                    timestamp: e_timestamp,
+                    window_id: e_window_id,
+                    x: e_x,
+                    y: e_y,
+                    ..
+                }
+                    => {
+                        if resource_place.contains(e_x, e_y) {
+                            let false_event = Event::KeyDown {
+                                timestamp: e_timestamp + 1,
+                                window_id: e_window_id,
+                                keycode: Some(Keycode::R),
+                                scancode: Some(Scancode::R),
+                                keymod: NOMOD,
+                                repeat: false,
+                            };
+                            sdl_event.push_event(false_event);
+                        }
+
+                        if gamearea.contains(e_x, e_y) {
+                            let (gamearea_x, gamearea_y): (i32, i32) = gamearea
+                                .into_relative(e_x, e_y);
+                            let texture_side: f32 = textures["floor.png"]
+                                .query()
+                                .width as f32;
+                            let map_x: usize =
+                                (gamearea_x as f32 / texture_side)
+                                .floor() as usize;
+                            let map_y: usize =
+                                (gamearea_y as f32 / texture_side)
+                                .floor() as usize;
+
+                            map.add_mark(map_x, map_y);
+                        }
+                    },
                 Event::KeyDown{keycode: Some(kcode), ..}
                     => {
                         if !textscene.active {
@@ -213,6 +252,7 @@ fn main() {
                             textscene.scene = curio_found.scene;
                             match textscene.scene.as_str() {
                                 "item" => {
+                                    monster.die();
                                     happy_end = true;
                                     sound::play_effect(&effects["shout.wav"]);
                                 },
