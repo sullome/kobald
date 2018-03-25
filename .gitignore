@@ -2,4 +2,4 @@
 **/*.rs.bk
 Cargo.lock
 *.sqlite3
-*.dll
+/*.dll
