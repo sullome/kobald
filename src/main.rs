@@ -180,7 +180,7 @@ fn main() {
                                 (gamearea_y as f32 / texture_side)
                                 .floor() as usize;
 
-                            map.add_mark(map_x, map_y);
+                            map.toggle_mark(map_x, map_y);
                         }
                     },
                 Event::KeyDown{keycode: Some(kcode), ..}

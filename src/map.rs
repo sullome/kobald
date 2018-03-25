@@ -368,11 +368,13 @@ impl Map {
     }
     //}}}
 
-    //{{{ add_mark
-    pub fn add_mark(&mut self, x: usize, y: usize) {
+    //{{{ toggle_mark
+    pub fn toggle_mark(&mut self, x: usize, y: usize) {
         let new_mark = (x, y);
-        if !self.marks.contains(&new_mark) {
-            self.marks.push(new_mark);
+        let mark_index = self.marks.binary_search(&new_mark);
+        match mark_index {
+            Ok(i) => {self.marks.remove(i);},
+            Err(i) => self.marks.insert(i, new_mark)
         }
     }
     //}}}
