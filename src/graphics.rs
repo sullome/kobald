@@ -374,22 +374,43 @@ impl Drawable for TextScene //{{{
         canvas: &mut Canvas<Window>
     )
     {
+        let mut texture: &Texture;
+        let mut place: Rect;
+        let bg_height: u32;
+        let bg_width: u32;
+
         // Background
-        let bg_texture: &Texture = &textures["scene_bg.png"];
-        let bg_place: Rect = Rect::new(
+        texture = &textures["scene_bg.png"];
+        bg_height = texture.query().height;
+        bg_width = texture.query().width;
+        place = Rect::new(
             0, 0,
-            bg_texture.query().width, bg_texture.query().height
+            bg_width, bg_height
         );
-        canvas.copy(bg_texture, None, bg_place)
+        canvas.copy(texture, None, place)
             .expect("Background texture rendering error!");
 
         // Text
-        let fg_texture: &Texture = &textures[&self.scene];
-        let fg_place: Rect = Rect::new(
+        texture = &textures[&self.scene];
+        place = Rect::new(
             5, 5,
-            fg_texture.query().width, fg_texture.query().height
+            texture.query().width, texture.query().height
         );
-        canvas.copy(fg_texture, None, fg_place)
+        canvas.copy(texture, None, place)
+            .expect("Text texture rendering error!");
+
+        // Press Enter to close
+        texture = &textures["enter_close"];
+        let close_center = Point::new(
+            (bg_width / 2) as i32,
+            (bg_height - texture.query().height / 2) as i32
+        );
+        place = Rect::from_center(
+            close_center,
+            texture.query().width,
+            texture.query().height
+        );
+        canvas.copy(texture, None, place)
             .expect("Text texture rendering error!");
     }
 }

@@ -88,6 +88,8 @@ insert into messages(situation, message) values
     ('danger1', 'Что-то крупное мелькнуло рядом.'),
     ('danger2', 'Лампа. С ней что-то не так.'),
     ('danger3', 'Я слышал странный шорох рядом.'),
+    ('enter_close', 'Нажмите [Enter] для продолжения'),
+    ('resource_keys', '[R][0]'),
     ('empty', ' ');
 insert into cards(tiles) values
     (readfile('data/cards/field1') ),

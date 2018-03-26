@@ -87,6 +87,8 @@ insert into messages(situation, message) values
     ('danger1', 'Something huge just flashed by!'),
     ('danger2', 'My lamp. Something is wrong with it.'),
     ('danger3', 'I hear strange rustles nearby.'),
+    ('enter_close', 'Press [Enter] to close'),
+    ('resource_keys', '[R][0]'),
     ('empty', ' ');
 insert into cards(tiles) values
     (readfile('data/cards/field1') ),
