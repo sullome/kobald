@@ -191,13 +191,18 @@ impl ResourceCounter {
 
 pub struct TextScene {
     pub active: bool,
-    pub scene: String
+    pub scene: String,
+    margin: i32,
 }
 impl TextScene {
     pub fn init() -> TextScene {
         TextScene {
             active: false,
-            scene: String::from("empty")
+            scene: String::from("empty"),
+            margin: match get_setting("textscene_margin") {
+                Some(value) => value,
+                None        => 10
+            }
         }
     }
 }
@@ -400,7 +405,7 @@ impl Drawable for TextScene //{{{
             )
         } else {
             Rect::new(
-                5, 5,
+                self.margin, self.margin,
                 texture.query().width, texture.query().height
             )
         };
@@ -411,7 +416,7 @@ impl Drawable for TextScene //{{{
         texture = &textures["enter_close"];
         let close_center = Point::new(
             (bg_width / 2) as i32,
-            (bg_height - texture.query().height / 2) as i32
+            (bg_height - texture.query().height / 2) as i32 - self.margin
         );
         place = Rect::from_center(
             close_center,
@@ -531,7 +536,7 @@ pub fn init_textures<T> //{{{
             font_height_end
         )
         .expect("Cannot load font from a stream.");
-    font_end.set_style(sdl2::ttf::STYLE_BOLD);
+    //font_end.set_style(sdl2::ttf::STYLE_BOLD);
 
     // Rendering messages with the selected font
     let max_line_width: u32 = match get_setting("textline_max_width") {
@@ -638,7 +643,7 @@ pub fn init
 
 
     // Set background canvas
-    canvas.set_draw_color(Color::RGB(200, 200, 200));
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
 
