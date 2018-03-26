@@ -492,6 +492,19 @@ impl Map {
             self.special_locations.insert(end.search_text.clone(), (x, y));
         }
 
+        // Closing the breaches
+        let mut db_path = PathBuf::from(".");
+        db_path.push(DB_FILENAME);
+
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
+        let db_conn = Connection::open_with_flags(&db_path, flags).unwrap();
+
+        for location in possible_locations[ends.len()..].iter() {
+            let &(x, y) = location;
+            self.tiles[x][y] =
+                Tile::init_regular(TileType::Wall, &db_conn, &mut rng).unwrap();
+        }
+
         Ok(())
     }
     //}}}
