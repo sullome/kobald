@@ -392,10 +392,18 @@ impl Drawable for TextScene //{{{
 
         // Text
         texture = &textures[&self.scene];
-        place = Rect::new(
-            5, 5,
-            texture.query().width, texture.query().height
-        );
+        place = if self.scene.starts_with("end_") {
+            Rect::from_center(
+                Point::new(bg_width as i32 / 2, bg_height as i32 / 2),
+                texture.query().width,
+                texture.query().height
+            )
+        } else {
+            Rect::new(
+                5, 5,
+                texture.query().width, texture.query().height
+            )
+        };
         canvas.copy(texture, None, place)
             .expect("Text texture rendering error!");
 
@@ -499,16 +507,31 @@ pub fn init_textures<T> //{{{
         .read_to_end(&mut font_bytes)
         .expect("Cannot read font bytes.");
 
-    let abstract_stream: RWops = RWops::from_bytes(&font_bytes)
-        .expect("Cannot open font bytes as a stream.");
 
     let font_height: u16 = match get_setting("textline_font_size") {
         Some(height) => height,
         None         => 12,
     };
+    let font_height_end: u16 = match get_setting("endings_font_size") {
+        Some(height) => height,
+        None         => 18,
+    };
+
     let font = sdl_ttf
-        .load_font_from_rwops(abstract_stream, font_height)
+        .load_font_from_rwops(
+            RWops::from_bytes(&font_bytes)
+                .expect("Cannot open font bytes as a stream."),
+            font_height
+        )
         .expect("Cannot load font from a stream.");
+    let mut font_end = sdl_ttf
+        .load_font_from_rwops(
+            RWops::from_bytes(&font_bytes)
+                .expect("Cannot open font bytes as a stream."),
+            font_height_end
+        )
+        .expect("Cannot load font from a stream.");
+    font_end.set_style(sdl2::ttf::STYLE_BOLD);
 
     // Rendering messages with the selected font
     let max_line_width: u32 = match get_setting("textline_max_width") {
@@ -566,7 +589,12 @@ pub fn init_textures<T> //{{{
     {
         if let Ok((scene, text)) = maybe_row_content {
             // Rendering message
-            let text_surface = font
+            let current_font = if scene.starts_with("end_") {
+                &font_end
+            } else {
+                &font
+            };
+            let text_surface = current_font
                 .render(&text)
                 .blended_wrapped(Color::RGB(0, 0, 0), max_line_width)
                 .expect("Cannot create text surface.");

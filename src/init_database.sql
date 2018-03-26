@@ -35,6 +35,7 @@ insert into game_settings(setting, value) values
     ('textscene_max_width', 431),
     ('textline_max_width',  576),
     ('textline_font_size',   22),
+    ('endings_font_size',    32),
     ('textline_time_max',     5),
     ('visible_distance',      3),
     ('resource_max',         10),
