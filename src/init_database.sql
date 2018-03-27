@@ -32,6 +32,10 @@ insert into game_settings(setting, value) values
     ('scene_y',             106),
     ('scene_w',             484),
     ('scene_h',             484),
+    ('help_x',              623),
+    ('help_y',               28),
+    ('help_w',               49),
+    ('help_h',               19),
     ('textscene_max_width', 455),
     ('textscene_margin',     14),
     ('textline_max_width',  576),
@@ -51,7 +55,8 @@ insert into images(name, image) values
     ('player.png',   readfile('data/icons/player.png')),
     ('flask.png',    readfile('data/icons/flask.png') ),
     ('map.png',      readfile('data/map.png')         ),
-    ('scene_bg.png', readfile('data/scene_bg.png')    );
+    ('scene_bg.png', readfile('data/scene_bg.png')    ),
+    ('controls',     readfile('data/scene_controls.png'));
 insert into musics(name, music) values
     ('la_femme.mp3', readfile('data/sounds/la_femme.mp3'));
 insert into sound_effects(name, effect) values

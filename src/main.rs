@@ -96,6 +96,7 @@ fn main() {
     let text = GUIElement::init("text");
     let resource_place = GUIElement::init("flask");
     let scene = GUIElement::init("scene");
+    let help = GUIElement::init("help");
 
     // Play background music
     let db_path: PathBuf = [".", DB_FILENAME].iter().collect();
@@ -182,6 +183,23 @@ fn main() {
 
                             map.toggle_mark(map_x, map_y);
                         }
+
+                        if help.contains(e_x, e_y) {
+                            let false_event = Event::KeyDown {
+                                timestamp: e_timestamp + 1,
+                                window_id: e_window_id,
+                                keycode: Some(Keycode::H),
+                                scancode: Some(Scancode::H),
+                                keymod: NOMOD,
+                                repeat: false,
+                            };
+                            sdl_event.push_event(false_event);
+                        }
+                    },
+                Event::KeyDown{keycode: Some(Keycode::H), ..}
+                    => {
+                        textscene.active = true;
+                        textscene.scene = String::from("controls");
                     },
                 Event::KeyDown{keycode: Some(kcode), ..}
                     => {
