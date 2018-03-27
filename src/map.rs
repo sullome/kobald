@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-use rand::{Rng, StdRng, thread_rng};
+use rand::{Rng, SeedableRng, StdRng, thread_rng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
 use pathfinding::astar::astar;
 
 use super::get_setting;
+use super::generate_seed;
 use super::objects::Player;
 
 //const CARDS_FIELDS_COUNT: usize = 18;
@@ -235,10 +236,14 @@ impl Map {
             None        => 100
         };
 
+        let seed: usize = generate_seed();
+        println!("Map generation seed: {}", seed);
+        let seed: &[_] = &[seed];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut map: Result<Map, u8> = Err(tries_max);
         let mut try_n: u8 = 0;
         while try_n < tries_max {
-            let cards_field = generate_field(&fields);
+            let cards_field = generate_field(&fields, &mut rng);
             let tiles = generate_map(&cards_field);
             let mut new_map = Map {
                 tiles,
@@ -555,12 +560,10 @@ fn init_cards //{{{
 /*
  * This function generates random field of cards
  */
-fn generate_field //{{{
-    (fields: &Vec<Card>) -> Vec<Vec<Card>>
+fn generate_field<'a, S, T: SeedableRng<S>> //{{{
+    (fields: &Vec<Card>, random_number_generator: &'a mut T) -> Vec<Vec<Card>>
 {
     let mut mut_fields = fields.clone();
-    let mut random_number_generator = StdRng::new()
-        .expect("Failed to read randomness from operating system.");
     random_number_generator.shuffle(&mut mut_fields);
 
     // Ends makes a "border" of width equal to 1 card around fields

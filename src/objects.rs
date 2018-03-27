@@ -152,34 +152,44 @@ impl Player {
             Keycode::Up
             | Keycode::Kp8
             | Keycode::Num8
+            | Keycode::W
                 => move_result = Some(self.move_relative(0, -1, map)),
             Keycode::Down
             | Keycode::Kp2
             | Keycode::Num2
+            | Keycode::S
                 => move_result = Some(self.move_relative(0, 1, map)),
             Keycode::Left
             | Keycode::Kp4
             | Keycode::Num4
+            | Keycode::A
                 => move_result = Some(self.move_relative(-1, 0, map)),
             Keycode::Right
             | Keycode::Kp6
             | Keycode::Num6
+            | Keycode::D
                 => move_result = Some(self.move_relative(1, 0, map)),
             Keycode::Kp1
             | Keycode::Num1
+            | Keycode::Z
                 => move_result = Some(self.move_relative(-1, 1, map)),
             Keycode::Kp3
             | Keycode::Num3
+            | Keycode::C
                 => move_result = Some(self.move_relative(1, 1, map)),
             Keycode::Kp7
             | Keycode::Num7
+            | Keycode::Q
                 => move_result = Some(self.move_relative(-1, -1, map)),
             Keycode::Kp9
             | Keycode::Num9
+            | Keycode::E
                 => move_result = Some(self.move_relative(1, -1, map)),
 
             // Actions
             Keycode::R
+            | Keycode::Kp0
+            | Keycode::Num0
                 => {
                     let refill_result_event = EventResourceRefill {
                         success: match self.refill_view_resource() {

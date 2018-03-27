@@ -4,6 +4,7 @@ extern crate sdl2;
 extern crate pathfinding;
 
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, OpenFlags};
 use rusqlite::types::FromSql;
 
@@ -30,6 +31,17 @@ pub fn get_setting<T: FromSql>
     {
         Ok(v)  => Some(v),
         Err(_) => None
+    }
+}
+
+pub fn generate_seed() -> usize {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(time) => if time.as_secs() > usize::max_value() as u64 {
+            time.subsec_nanos() as usize
+        } else {
+            time.as_secs() as usize
+        },
+        Err(_)   => panic!("SystemTime before UNIX EPOCH!"),
     }
 }
 
