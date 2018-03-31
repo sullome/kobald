@@ -5,25 +5,23 @@ use sdl2;
 use sdl2::Sdl;
 use sdl2::rwops::RWops;
 use sdl2::image::ImageRWops;
-use sdl2::render::{TextureCreator, Texture, Canvas, RenderTarget};
-use sdl2::rect::{Rect, Point};
+use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::rect::{Point, Rect};
 use sdl2::video::{Window, WindowPos};
 use sdl2::pixels::Color;
-use sdl2::EventPump;
-use sdl2::EventSubsystem;
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read; // For Blob
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 use super::map::Map;
 use super::objects::Player;
 use super::get_setting;
 
 use super::DB_FILENAME;
-const DB_IMAGES_TABLE:   &'static str = "images";
-const DB_IMAGES_COLUMN:  &'static str = "image";
-const DB_FONTS_TABLE:    &'static str = "fonts";
-const DB_FONTS_COLUMN:   &'static str = "font";
+const DB_IMAGES_TABLE: &'static str = "images";
+const DB_IMAGES_COLUMN: &'static str = "image";
+const DB_FONTS_TABLE: &'static str = "fonts";
+const DB_FONTS_COLUMN: &'static str = "font";
 const DB_MESSAGES_TABLE: &'static str = "messages";
 
 pub struct GUIElement {
@@ -36,28 +34,28 @@ impl GUIElement {
         name_string.push('x');
         let x: i32 = match get_setting(&name_string) {
             Some(value) => value,
-            None        => 0,
+            None => 0,
         };
 
         name_string.pop();
         name_string.push('y');
         let y: i32 = match get_setting(&name_string) {
             Some(value) => value,
-            None        => 0,
+            None => 0,
         };
 
         name_string.pop();
         name_string.push('w');
         let width: u32 = match get_setting(&name_string) {
             Some(value) => value,
-            None        => 1,
+            None => 1,
         };
 
         name_string.pop();
         name_string.push('h');
         let height: u32 = match get_setting(&name_string) {
             Some(value) => value,
-            None        => 1,
+            None => 1,
         };
 
         GUIElement {
@@ -65,14 +63,12 @@ impl GUIElement {
         }
     }
 
-    pub fn draw
-    (
+    pub fn draw(
         &self,
         textures: &HashMap<String, Texture>,
         mut canvas: &mut Canvas<Window>,
-        parts: Vec<&Drawable>
-    )
-    {
+        parts: Vec<&Drawable>,
+    ) {
         // Start drawing this element in its own place
         let previous_drawarea: Rect = canvas.viewport();
         canvas.set_viewport(self.drawarea);
@@ -98,18 +94,18 @@ impl GUIElement {
 pub struct TextLine {
     situation: String,
     time_max: u8,
-    time: u8
+    time: u8,
 }
 impl TextLine {
     pub fn init() -> TextLine {
         let time_max: u8 = match get_setting("textline_time_max") {
             Some(value) => value,
-            None        => 3
+            None => 3,
         };
         TextLine {
             situation: String::from("start"),
             time_max,
-            time: time_max
+            time: time_max,
         }
     }
 
@@ -132,29 +128,24 @@ impl TextLine {
             .expect("Cannot read data.");
 
         let situation_in_q: String = String::from(situation) + "%";
-        let query: String = String::from("select situation ")
-            + "from messages "
-            + "where situation like ?;"
-            ;
+        let query: String = String::from("select situation ") + "from messages "
+            + "where situation like ?;";
         let mut statement = db_connection.prepare(&query).unwrap();
-        let situations: Vec<String> = statement.query_map(
-            &[&situation_in_q],
-            |row| {
+        let situations: Vec<String> = statement
+            .query_map(&[&situation_in_q], |row| {
                 let value: String = row.get(0);
                 value
-            }
-        )
+            })
             .unwrap()
             .map(|row| row.unwrap())
-            .collect()
-        ;
+            .collect();
 
-        let situation_sample: String = match thread_rng().choose(&situations){
+        let situation_sample: String = match thread_rng().choose(&situations) {
             Some(sit) => {
                 self.time = self.time_max;
                 sit.clone()
-            },
-            None      => String::from("empty")
+            }
+            None => String::from("empty"),
         };
 
         self.situation = situation_sample;
@@ -174,13 +165,13 @@ impl Background {
 
 pub struct ResourceCounter {
     texture_name: String,
-    state: f32
+    state: f32,
 }
 impl ResourceCounter {
     pub fn init(player: &Player) -> ResourceCounter {
         ResourceCounter {
             texture_name: String::from("flask.png"),
-            state: player.get_resource_state()
+            state: player.get_resource_state(),
         }
     }
 
@@ -201,29 +192,26 @@ impl TextScene {
             scene: String::from("empty"),
             margin: match get_setting("textscene_margin") {
                 Some(value) => value,
-                None        => 10
-            }
+                None => 10,
+            },
         }
     }
 }
 
 pub trait Drawable {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
+        canvas: &mut Canvas<Window>,
     );
 }
 impl Drawable for Map //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         // Draw visible tiles
         let texture_side: u32 = textures["wall.png"].query().width;
         let mut place: Rect = Rect::new(0, 0, texture_side, texture_side);
@@ -237,7 +225,8 @@ impl Drawable for Map //{{{
                     place.set_x(tx);
                     place.set_y(ty);
 
-                    canvas.copy(texture, None, place)
+                    canvas
+                        .copy(texture, None, place)
                         .expect("Texture rendering error!");
                 }
             }
@@ -248,10 +237,11 @@ impl Drawable for Map //{{{
         for mark in self.marks.iter() {
             let mark_loc = (
                 (mark.0 as u32 * texture_side) as i32,
-                (mark.1 as u32 * texture_side) as i32
+                (mark.1 as u32 * texture_side) as i32,
             );
             place.reposition(mark_loc);
-            canvas.copy(mark_texture, None, place)
+            canvas
+                .copy(mark_texture, None, place)
                 .expect("Texture rendering error!");
         }
     }
@@ -259,35 +249,32 @@ impl Drawable for Map //{{{
 //}}}
 impl Drawable for Player //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         let texture: &Texture = &textures["player.png"];
         let texture_side: u32 = texture.query().width;
         let place: Rect = Rect::new(
             ((self.x as u32) * texture_side) as i32,
             ((self.y as u32) * texture_side) as i32,
             texture_side,
-            texture_side
+            texture_side,
         );
-        canvas.copy(texture, None, place)
+        canvas
+            .copy(texture, None, place)
             .expect("Texture rendering error!");
     }
 }
 //}}}
 impl Drawable for TextLine //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         let text_texture: &Texture = match textures.get(&self.situation) {
             Some(value) => {
                 if self.time > 0 {
@@ -295,90 +282,88 @@ impl Drawable for TextLine //{{{
                 } else {
                     &textures["empty"]
                 }
-            },
-            None        => &textures["empty"]
+            }
+            None => &textures["empty"],
         };
         let place: Rect = Rect::new(
-            0, 0,
+            0,
+            0,
             text_texture.query().width,
-            text_texture.query().height
+            text_texture.query().height,
         );
-        canvas.copy(text_texture, None, place)
+        canvas
+            .copy(text_texture, None, place)
             .expect("Text texture rendering error!");
     }
 } //}}}
 impl Drawable for Background //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         let bg_texture: &Texture = &textures[&self.texture_name];
         let place: Rect = Rect::new(
-            0, 0,
-            bg_texture.query().width, bg_texture.query().height
+            0,
+            0,
+            bg_texture.query().width,
+            bg_texture.query().height,
         );
-        canvas.copy(bg_texture, None, place)
+        canvas
+            .copy(bg_texture, None, place)
             .expect("Text texture rendering error!");
-
     }
 }
 //}}}
 impl Drawable for ResourceCounter //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         // Declaring background
         let mut bg_place: Rect = Rect::new(7, 24, 19, 89); //TODO
         let bg_color: Color = Color::RGB(240, 167, 10); //TODO
 
         // Calculating correct height and position, based on it
         let correct_height: u32 =
-            (self.state * bg_place.height() as f32)
-            .round()
-            as u32;
+            (self.state * bg_place.height() as f32).round() as u32;
         let prev_y: i32 = bg_place.y();
         let prev_h: i32 = bg_place.height() as i32;
-        bg_place.set_y(
-            prev_y + prev_h - correct_height as i32
-        );
+        bg_place.set_y(prev_y + prev_h - correct_height as i32);
         bg_place.set_height(correct_height);
 
         // Drawining oil rectangle
         let previous_color: Color = canvas.draw_color();
         canvas.set_draw_color(bg_color);
-        canvas.fill_rect(bg_place)
+        canvas
+            .fill_rect(bg_place)
             .expect("Failed to draw a rectangle.");
         canvas.set_draw_color(previous_color);
 
         // Drawing flask
         let foreground: &Texture = &textures[&self.texture_name];
         let fg_place: Rect = Rect::new(
-            0, 0,
-            foreground.query().width, foreground.query().height
+            0,
+            0,
+            foreground.query().width,
+            foreground.query().height,
         );
-        canvas.copy(foreground, None, fg_place)
+        canvas
+            .copy(foreground, None, fg_place)
             .expect("Text texture rendering error!");
     }
 }
 //}}}
 impl Drawable for TextScene //{{{
 {
-    fn draw
-    (
+    fn draw(
         &self,
         textures: &HashMap<String, Texture>,
-        canvas: &mut Canvas<Window>
-    )
-    {
+        canvas: &mut Canvas<Window>,
+    ) {
         let mut texture: &Texture;
         let mut place: Rect;
         let bg_height: u32;
@@ -388,11 +373,9 @@ impl Drawable for TextScene //{{{
         texture = &textures["scene_bg.png"];
         bg_height = texture.query().height;
         bg_width = texture.query().width;
-        place = Rect::new(
-            0, 0,
-            bg_width, bg_height
-        );
-        canvas.copy(texture, None, place)
+        place = Rect::new(0, 0, bg_width, bg_height);
+        canvas
+            .copy(texture, None, place)
             .expect("Background texture rendering error!");
 
         // Text
@@ -401,29 +384,33 @@ impl Drawable for TextScene //{{{
             Rect::from_center(
                 Point::new(bg_width as i32 / 2, bg_height as i32 / 2),
                 texture.query().width,
-                texture.query().height
+                texture.query().height,
             )
         } else {
             Rect::new(
-                self.margin, self.margin,
-                texture.query().width, texture.query().height
+                self.margin,
+                self.margin,
+                texture.query().width,
+                texture.query().height,
             )
         };
-        canvas.copy(texture, None, place)
+        canvas
+            .copy(texture, None, place)
             .expect("Text texture rendering error!");
 
         // Press Enter to close
         texture = &textures["enter_close"];
         let close_center = Point::new(
             (bg_width / 2) as i32,
-            (bg_height - texture.query().height / 2) as i32 - self.margin
+            (bg_height - texture.query().height / 2) as i32 - self.margin,
         );
         place = Rect::from_center(
             close_center,
             texture.query().width,
-            texture.query().height
+            texture.query().height,
         );
-        canvas.copy(texture, None, place)
+        canvas
+            .copy(texture, None, place)
             .expect("Text texture rendering error!");
     }
 }
@@ -432,10 +419,10 @@ impl Drawable for TextScene //{{{
 /*
  * This function initializes textures for further usage by *draw* functions.
  */
-pub fn init_textures<T> //{{{
-    (texture_creator: &TextureCreator<T>) -> HashMap<String, Texture>
-{
-    let mut textures: HashMap<String,Texture> = HashMap::new();
+pub fn init_textures<T>(
+    texture_creator: &TextureCreator<T>,
+) -> HashMap<String, Texture> {
+    let mut textures: HashMap<String, Texture> = HashMap::new();
 
     // Setting up database connection
     let db_path: PathBuf = [".", DB_FILENAME].iter().collect();
@@ -445,32 +432,31 @@ pub fn init_textures<T> //{{{
 
     //{{{ Pictures
     // Query for retrieving images location in DB
-    let query = String::from("select name, rowid from ")
-        + DB_IMAGES_TABLE
-        + ";"
-    ;
-    let mut statement = db_connection.prepare(&query)
+    let query =
+        String::from("select name, rowid from ") + DB_IMAGES_TABLE + ";";
+    let mut statement = db_connection
+        .prepare(&query)
         .expect("Cannot prepary query.");
 
-    for maybe_row_content in statement.query_map
-    (
-        &[],
-        |row| {
+    for maybe_row_content in statement
+        .query_map(&[], |row| {
             let name: String = row.get(0);
-            let id:      i64 = row.get(1);
+            let id: i64 = row.get(1);
             (id, name)
-        }
-    ).unwrap()
+        })
+        .unwrap()
     {
         if let Ok((id, name)) = maybe_row_content {
             // Getting image
-            let mut image_blob = db_connection.blob_open(
-                DatabaseName::Main,
-                DB_IMAGES_TABLE,
-                DB_IMAGES_COLUMN,
-                id,
-                true              // Read-Only
-            ).expect("Cannot read image blob.");
+            let mut image_blob = db_connection
+                .blob_open(
+                    DatabaseName::Main,
+                    DB_IMAGES_TABLE,
+                    DB_IMAGES_COLUMN,
+                    id,
+                    true, // Read-Only
+                )
+                .expect("Cannot read image blob.");
 
             let mut image_bytes: Vec<u8> = Vec::new();
             image_blob
@@ -495,73 +481,70 @@ pub fn init_textures<T> //{{{
 
     //{{{ Messages
     // Initializing SDL TTF
-    let sdl_ttf = sdl2::ttf::init()
-        .expect("SDL TTF initialization error.");
+    let sdl_ttf = sdl2::ttf::init().expect("SDL TTF initialization error.");
 
     // Getting font from database
-    let mut font_blob = db_connection.blob_open(
-        DatabaseName::Main,
-        DB_FONTS_TABLE,
-        DB_FONTS_COLUMN,
-        1,
-        true              // Read-Only
-    ).expect("Cannot read font blob.");
+    let mut font_blob = db_connection
+        .blob_open(
+            DatabaseName::Main,
+            DB_FONTS_TABLE,
+            DB_FONTS_COLUMN,
+            1,
+            true, // Read-Only
+        )
+        .expect("Cannot read font blob.");
 
     let mut font_bytes: Vec<u8> = Vec::new();
     font_blob
         .read_to_end(&mut font_bytes)
         .expect("Cannot read font bytes.");
 
-
     let font_height: u16 = match get_setting("textline_font_size") {
         Some(height) => height,
-        None         => 12,
+        None => 12,
     };
     let font_height_end: u16 = match get_setting("endings_font_size") {
         Some(height) => height,
-        None         => 18,
+        None => 18,
     };
 
     let font = sdl_ttf
         .load_font_from_rwops(
             RWops::from_bytes(&font_bytes)
                 .expect("Cannot open font bytes as a stream."),
-            font_height
+            font_height,
         )
         .expect("Cannot load font from a stream.");
-    let mut font_end = sdl_ttf
+    let font_end = sdl_ttf
         .load_font_from_rwops(
             RWops::from_bytes(&font_bytes)
                 .expect("Cannot open font bytes as a stream."),
-            font_height_end
+            font_height_end,
         )
         .expect("Cannot load font from a stream.");
-    //font_end.set_style(sdl2::ttf::STYLE_BOLD);
 
     // Rendering messages with the selected font
     let max_line_width: u32 = match get_setting("textline_max_width") {
         Some(value) => value,
-        None        => 100
+        None => 100,
     };
 
     let query = String::from("select * from ") + DB_MESSAGES_TABLE + ";";
-    let mut statement = db_connection.prepare(&query)
+    let mut statement = db_connection
+        .prepare(&query)
         .expect("Cannot prepary query.");
 
-    for maybe_row_content in statement.query_map
-    (
-        &[],
-        |row| {
+    for maybe_row_content in statement
+        .query_map(&[], |row| {
             let situation: String = row.get(0);
-            let message:   String = row.get(1);
+            let message: String = row.get(1);
             (situation, message)
-        }
-    ).unwrap()
+        })
+        .unwrap()
     {
         if let Ok((situation, message)) = maybe_row_content {
             // Rendering message
-            let text_surface = font
-                .render(&message)
+            let text_surface = font.render(&message)
                 .blended_wrapped(Color::RGB(0, 0, 0), max_line_width)
                 .expect("Cannot create text surface.");
             let text_texture = texture_creator
@@ -575,22 +558,21 @@ pub fn init_textures<T> //{{{
     // Rendering scene messages with the selected font
     let max_line_width: u32 = match get_setting("textscene_max_width") {
         Some(value) => value,
-        None        => 100
+        None => 100,
     };
 
     let query = String::from("select * from scenes;");
-    let mut statement = db_connection.prepare(&query)
+    let mut statement = db_connection
+        .prepare(&query)
         .expect("Cannot prepary query.");
 
-    for maybe_row_content in statement.query_map
-    (
-        &[],
-        |row| {
+    for maybe_row_content in statement
+        .query_map(&[], |row| {
             let scene: String = row.get(0);
-            let text:  String = row.get(1);
+            let text: String = row.get(1);
             (scene, text)
-        }
-    ).unwrap()
+        })
+        .unwrap()
     {
         if let Ok((scene, text)) = maybe_row_content {
             // Rendering message
@@ -619,28 +601,28 @@ pub fn init_textures<T> //{{{
 /*
  * This function initializes SDL2 window
  */
-pub fn init
-    (sdl_context: &Sdl) -> Canvas<Window>
-{
+pub fn init(sdl_context: &Sdl) -> Canvas<Window> {
     let game_name: String = match get_setting("game_name") {
         Some(name) => name,
-        None       => String::from("Debug")
+        None => String::from("Debug"),
     };
 
     // Init SDL2 and it's subsystems
-    let sdl_video = sdl_context.video()
+    let sdl_video = sdl_context
+        .video()
         .expect("SDL video subsystem initialization error.");
     let _sdl_image = sdl2::image::init(sdl2::image::INIT_PNG)
         .expect("SDL Image initialization error.");
 
     // Init main window
-    let window = sdl_video.window(&game_name, 10, 10)
+    let window = sdl_video
+        .window(&game_name, 10, 10)
         .build()
         .expect("Window build error.");
-    let mut canvas = window.into_canvas()
+    let mut canvas = window
+        .into_canvas()
         .build()
         .expect("Canvas creation error.");
-
 
     // Set background canvas
     canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -650,14 +632,16 @@ pub fn init
     canvas
 }
 
-pub fn configure_window
-    (window: &mut Window, textures: &HashMap<String, Texture>)
-{
+pub fn configure_window(
+    window: &mut Window,
+    textures: &HashMap<String, Texture>,
+) {
     let bg_texture: &Texture = &textures["map.png"];
-    let window_width:  u32 = bg_texture.query().width;
+    let window_width: u32 = bg_texture.query().width;
     let window_height: u32 = bg_texture.query().height;
 
-    window.set_size(window_width, window_height)
+    window
+        .set_size(window_width, window_height)
         .expect("Window resizing error.");
     window.set_position(WindowPos::Centered, WindowPos::Centered);
 }

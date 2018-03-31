@@ -1,25 +1,20 @@
 use sdl2::EventSubsystem;
 use sdl2::keyboard::Keycode;
-use rusqlite::{Connection, OpenFlags};
-use rand::{Rng, StdRng, thread_rng};
-
-use std::path::PathBuf;
+use rand::{thread_rng, Rng, StdRng};
 
 use super::map::Map;
 use super::map::TileType;
 use super::get_setting;
 
-use super::DB_FILENAME;
-
 //{{{ Player
 pub struct Player {
-    view_distance:       u8,
-    view_resource:       u8,
-    view_resource_max:   u8,
+    view_distance: u8,
+    view_resource: u8,
+    view_resource_max: u8,
     view_resource_count: u8,
 
     in_danger: bool,
-    view_distance_danger:u8,
+    view_distance_danger: u8,
 
     pub x: usize,
     pub y: usize,
@@ -29,21 +24,21 @@ impl Player {
     {
         // Default values
         let mut player = Player {
-            view_distance:       match get_setting("visible_distance") {
+            view_distance: match get_setting("visible_distance") {
                 Some(value) => value,
-                None        => 5
+                None => 5,
             },
-            view_distance_danger:match get_setting("visible_distance_danger") {
+            view_distance_danger: match get_setting("visible_distance_danger") {
                 Some(value) => value,
-                None        => 2
+                None => 2,
             },
-            view_resource_max:   match get_setting("resource_max") {
+            view_resource_max: match get_setting("resource_max") {
                 Some(value) => value,
-                None        => 10
+                None => 10,
             },
             view_resource_count: match get_setting("resource_start") {
                 Some(value) => value,
-                None        => 3
+                None => 3,
             },
             view_resource: 0,
             in_danger: false,
@@ -105,17 +100,28 @@ impl Player {
     }
     //}}}
 
-    fn move_relative(&mut self, x_mod: isize, y_mod: isize, map: &Map) //{{{
-        -> Result<(), (usize, usize)>
-    {
+    fn move_relative(
+        &mut self,
+        x_mod: isize,
+        y_mod: isize,
+        map: &Map,
+    ) -> Result<(), (usize, usize)> {
         let map_size = map.tiles.len() as isize - 1;
         let mut new_x: isize = self.x as isize + x_mod;
         let mut new_y: isize = self.y as isize + y_mod;
 
-        if new_x < 0 {new_x = 0};
-        if new_y < 0 {new_y = 0};
-        if new_x >= map_size {new_x = map_size};
-        if new_y >= map_size {new_y = map_size};
+        if new_x < 0 {
+            new_x = 0
+        };
+        if new_y < 0 {
+            new_y = 0
+        };
+        if new_x >= map_size {
+            new_x = map_size
+        };
+        if new_y >= map_size {
+            new_y = map_size
+        };
         let new_x: usize = new_x as usize;
         let new_y: usize = new_y as usize;
 
@@ -129,16 +135,14 @@ impl Player {
     }
     //}}}
 
-    pub fn update //{{{
-    (
+    pub fn update(
         &mut self,
         key: &Keycode,
         map: &Map,
         monster: &Kobold,
         resources: &Resources,
-        event_system: &EventSubsystem
-    ) -> bool
-    {
+        event_system: &EventSubsystem,
+    ) -> bool {
         let mut updated: bool = false;
 
         // Save some fields before update.
@@ -149,61 +153,44 @@ impl Player {
         //{{{ Reaction to keypresses
         match *key {
             // Movement
-            Keycode::Up
-            | Keycode::Kp8
-            | Keycode::Num8
-            | Keycode::W
-                => move_result = Some(self.move_relative(0, -1, map)),
-            Keycode::Down
-            | Keycode::Kp2
-            | Keycode::Num2
-            | Keycode::S
-                => move_result = Some(self.move_relative(0, 1, map)),
-            Keycode::Left
-            | Keycode::Kp4
-            | Keycode::Num4
-            | Keycode::A
-                => move_result = Some(self.move_relative(-1, 0, map)),
-            Keycode::Right
-            | Keycode::Kp6
-            | Keycode::Num6
-            | Keycode::D
-                => move_result = Some(self.move_relative(1, 0, map)),
-            Keycode::Kp1
-            | Keycode::Num1
-            | Keycode::Z
-                => move_result = Some(self.move_relative(-1, 1, map)),
-            Keycode::Kp3
-            | Keycode::Num3
-            | Keycode::C
-                => move_result = Some(self.move_relative(1, 1, map)),
-            Keycode::Kp7
-            | Keycode::Num7
-            | Keycode::Q
-                => move_result = Some(self.move_relative(-1, -1, map)),
-            Keycode::Kp9
-            | Keycode::Num9
-            | Keycode::E
-                => move_result = Some(self.move_relative(1, -1, map)),
+            Keycode::Up | Keycode::Kp8 | Keycode::Num8 | Keycode::W => {
+                move_result = Some(self.move_relative(0, -1, map))
+            }
+            Keycode::Down | Keycode::Kp2 | Keycode::Num2 | Keycode::S => {
+                move_result = Some(self.move_relative(0, 1, map))
+            }
+            Keycode::Left | Keycode::Kp4 | Keycode::Num4 | Keycode::A => {
+                move_result = Some(self.move_relative(-1, 0, map))
+            }
+            Keycode::Right | Keycode::Kp6 | Keycode::Num6 | Keycode::D => {
+                move_result = Some(self.move_relative(1, 0, map))
+            }
+            Keycode::Kp1 | Keycode::Num1 | Keycode::Z => {
+                move_result = Some(self.move_relative(-1, 1, map))
+            }
+            Keycode::Kp3 | Keycode::Num3 | Keycode::C => {
+                move_result = Some(self.move_relative(1, 1, map))
+            }
+            Keycode::Kp7 | Keycode::Num7 | Keycode::Q => {
+                move_result = Some(self.move_relative(-1, -1, map))
+            }
+            Keycode::Kp9 | Keycode::Num9 | Keycode::E => {
+                move_result = Some(self.move_relative(1, -1, map))
+            }
 
             // Actions
-            Keycode::R
-            | Keycode::Kp0
-            | Keycode::Num0
-                => {
-                    let refill_result_event = EventResourceRefill {
-                        success: match self.refill_view_resource() {
-                            Ok(_)  => true,
-                            Err(_) => false
-                        }
-                    };
-                    event_system
-                        .push_custom_event(refill_result_event)
-                        .unwrap();
-                    updated = true;
-                },
+            Keycode::R | Keycode::Kp0 | Keycode::Num0 => {
+                let refill_result_event = EventResourceRefill {
+                    success: match self.refill_view_resource() {
+                        Ok(_) => true,
+                        Err(_) => false,
+                    },
+                };
+                event_system.push_custom_event(refill_result_event).unwrap();
+                updated = true;
+            }
 
-            _   => return false
+            _ => return false,
         }
         //}}}
 
@@ -212,30 +199,30 @@ impl Player {
         // Moved?
         if let Some(result) = move_result {
             match result {
-                Ok(_)       => {
+                Ok(_) => {
                     self.drain_view_resource();
 
-                    if let TileType::Curiosity
-                        = map.tiles[self.x][self.y].ttype {
+                    if let TileType::Curiosity = map.tiles[self.x][self.y].ttype
+                    {
                         let curio_found = EventCurioFound {
-                            scene: map.tiles[self.x][self.y].search_text.clone()
+                            scene: map.tiles[self.x][self.y]
+                                .search_text
+                                .clone(),
                         };
                         event_system.push_custom_event(curio_found).unwrap();
                     }
 
                     updated = true;
-                },
+                }
                 Err((x, y)) => {
                     if let TileType::Obstacle = map.tiles[x][y].ttype {
-                        let obstacle_found = EventObstacleFound{
-                            text: map.tiles[x][y].search_text.clone()
+                        let obstacle_found = EventObstacleFound {
+                            text: map.tiles[x][y].search_text.clone(),
                         };
-                        event_system
-                            .push_custom_event(obstacle_found)
-                            .unwrap();
+                        event_system.push_custom_event(obstacle_found).unwrap();
                         updated = true;
                     }
-                },
+                }
             }
         }
 
@@ -248,12 +235,12 @@ impl Player {
             if map.get_distance(&self_loc, &monster_loc)
                 < monster.danger_distance
             {
-                if let Some(dist) = map
-                    .get_path_distance(&self_loc, &monster_loc)
+                if let Some(dist) =
+                    map.get_path_distance(&self_loc, &monster_loc)
                 {
                     if dist < monster.danger_distance {
                         self.in_danger = true;
-                        let in_danger = EventPlayerInDanger{};
+                        let in_danger = EventPlayerInDanger {};
                         event_system.push_custom_event(in_danger).unwrap();
                     }
                 }
@@ -261,7 +248,7 @@ impl Player {
 
             // Monster met?
             if self_loc == monster_loc {
-                let meet_monster = EventPlayerMeetMonster{};
+                let meet_monster = EventPlayerMeetMonster {};
                 event_system.push_custom_event(meet_monster).unwrap();
             }
         }
@@ -269,14 +256,14 @@ impl Player {
         // Was resource found?
         for (i, &resource_location) in resources.locations.iter().enumerate() {
             if resource_location == (self.x, self.y) {
-                let resource_found = EventResourceFound{index: i};
+                let resource_found = EventResourceFound { index: i };
                 event_system.push_custom_event(resource_found).unwrap();
             }
         }
 
         // Was resource gone?
         if previous_view_resource > 0 && self.view_resource == 0 {
-            let resource_gone = EventResourceGone{};
+            let resource_gone = EventResourceGone {};
             event_system.push_custom_event(resource_gone).unwrap();
         }
         //}}}
@@ -289,20 +276,19 @@ impl Player {
 
 //{{{ Resources
 pub struct Resources {
-    locations: Vec<(usize, usize)>
+    locations: Vec<(usize, usize)>,
 }
 impl Resources {
     pub fn init(map: &Map, player: &Player) -> Resources {
-        let mut rng: StdRng = StdRng::new()
-            .expect("Cannot read randomness from OS");
+        let mut rng: StdRng =
+            StdRng::new().expect("Cannot read randomness from OS");
         let sections_side: u32 = match get_setting("resource_distance") {
             Some(value) => value,
-            None        => player.view_resource_max as u32
+            None => player.view_resource_max as u32,
         };
         let sections_side: usize = sections_side as usize;
-        let mut locations: Vec<(usize, usize)> = Vec::with_capacity(
-            map.tiles.len() / sections_side ^ 2
-        );
+        let mut locations: Vec<(usize, usize)> =
+            Vec::with_capacity(map.tiles.len() / sections_side ^ 2);
 
         /*
          * Two 'while' cycles are needed to segregate map into sections
@@ -327,8 +313,8 @@ impl Resources {
                         }
                     }
                 }
-                let maybe_location: Option<&(usize, usize)> = rng
-                    .choose(&possible_locations);
+                let maybe_location: Option<&(usize, usize)> =
+                    rng.choose(&possible_locations);
                 if let Some(location) = maybe_location {
                     locations.push(*location);
                 }
@@ -342,7 +328,7 @@ impl Resources {
             x += sections_side;
         }
 
-    Resources { locations }
+        Resources { locations }
     }
 
     pub fn process_event(&mut self, custom_event: &EventResourceFound) {
@@ -365,7 +351,7 @@ impl Kobold {
             alive: true,
             danger_distance: match get_setting("kobold_danger_dist") {
                 Some(value) => value,
-                None        => 5,
+                None => 5,
             } + 1,
             x: 0,
             y: 0,
@@ -375,8 +361,8 @@ impl Kobold {
             Some((x, y)) => {
                 kobold.x = x;
                 kobold.y = y;
-            },
-            None => kobold.alive = false
+            }
+            None => kobold.alive = false,
         }
 
         kobold
@@ -385,12 +371,10 @@ impl Kobold {
     pub fn update(&mut self, map: &Map) {
         if self.alive {
             let mut possible_steps = map.get_neighbours(&(self.x, self.y));
-            possible_steps.retain(
-                |location| {
-                    let &((x, y), _) = location;
-                    map.tiles[x][y].passable
-                }
-            );
+            possible_steps.retain(|location| {
+                let &((x, y), _) = location;
+                map.tiles[x][y].passable
+            });
             let maybe_step = thread_rng().choose(&possible_steps);
             if let Some(&((sx, sy), _)) = maybe_step {
                 self.x = sx;
@@ -408,27 +392,42 @@ impl Kobold {
 /*
  * Custom events
  */
-pub struct EventResourceFound     {index: usize}
-pub struct EventResourceGone      {}
-pub struct EventResourceRefill    {pub success: bool}
-pub struct EventObstacleFound     {pub text: String}
-pub struct EventCurioFound        {pub scene: String}
-pub struct EventPlayerInDanger    {}
+pub struct EventResourceFound {
+    index: usize,
+}
+pub struct EventResourceGone {}
+pub struct EventResourceRefill {
+    pub success: bool,
+}
+pub struct EventObstacleFound {
+    pub text: String,
+}
+pub struct EventCurioFound {
+    pub scene: String,
+}
+pub struct EventPlayerInDanger {}
 pub struct EventPlayerMeetMonster {}
 
 pub fn init_custom_events(sdl_event: &EventSubsystem) {
-    sdl_event.register_custom_event::<EventResourceFound>()
+    sdl_event
+        .register_custom_event::<EventResourceFound>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventResourceGone>()
+    sdl_event
+        .register_custom_event::<EventResourceGone>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventResourceRefill>()
+    sdl_event
+        .register_custom_event::<EventResourceRefill>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventObstacleFound>()
+    sdl_event
+        .register_custom_event::<EventObstacleFound>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventCurioFound>()
+    sdl_event
+        .register_custom_event::<EventCurioFound>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventPlayerInDanger>()
+    sdl_event
+        .register_custom_event::<EventPlayerInDanger>()
         .expect("Failed to register event.");
-    sdl_event.register_custom_event::<EventPlayerMeetMonster>()
+    sdl_event
+        .register_custom_event::<EventPlayerMeetMonster>()
         .expect("Failed to register event.");
 }

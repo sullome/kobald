@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-use rand::{Rng, SeedableRng, StdRng, thread_rng};
+use rand::{Rng, SeedableRng, StdRng};
 use rusqlite::{Connection, DatabaseName, OpenFlags};
 use std::io::Read;
 use pathfinding::astar::astar;
@@ -11,30 +11,30 @@ use super::generate_seed;
 use super::objects::Player;
 
 //const CARDS_FIELDS_COUNT: usize = 18;
-const ENDS_COUNT:         usize = 6;
+const ENDS_COUNT: usize = 6;
 
-const CARDS_MAP_SIDE:     usize = 3;
+const CARDS_MAP_SIDE: usize = 3;
 
 use super::DB_FILENAME;
-const DB_TABLE_W_CARDS:        &'static str = "cards";
+const DB_TABLE_W_CARDS: &'static str = "cards";
 const DB_TABLE_W_CARDS_COLUMN: &'static str = "tiles";
 
 //{{{ Tile
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub enum TileType {
     Floor,
     Wall,
     Obstacle,
-    Curiosity
+    Curiosity,
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub enum EndType {
     Children,
     Body,
     Lair,
     Item,
-    Rest
+    Rest,
 }
 
 #[derive(Clone)]
@@ -46,19 +46,16 @@ pub struct Tile {
     pub search_text: String,
 
     // Name of the icon
-    pub icon: String
+    pub icon: String,
 }
 impl Tile {
-    pub fn init_regular<T: Rng>
-    (
+    pub fn init_regular<T: Rng>(
         tile_type: TileType,
         db_conn: &Connection,
-        rng: &mut T
-    )
-    -> Option<Tile>
-    {
+        rng: &mut T,
+    ) -> Option<Tile> {
         if let TileType::Curiosity = tile_type {
-            return None
+            return None;
         }
 
         let tile_image = String::from(match tile_type {
@@ -72,28 +69,25 @@ impl Tile {
 
         let message: String = match tile_type {
             TileType::Obstacle => {
-                let query = String::from("select situation ")
-                    + "from messages "
-                    + "where situation like ?;"
-                    ;
+                let query = String::from("select situation ") + "from messages "
+                    + "where situation like ?;";
                 let mut statement = db_conn.prepare(&query).unwrap();
 
-                let obstacles: Vec<String> = statement.query_map(
-                    &[&"obstacle%"],
-                    |row| {
-                        let s:String = row.get(0);
+                let obstacles: Vec<String> = statement
+                    .query_map(&[&"obstacle%"], |row| {
+                        let s: String = row.get(0);
                         s
-                    }
-                ).unwrap().map(
-                    |row| row.unwrap()
-                ).collect();
+                    })
+                    .unwrap()
+                    .map(|row| row.unwrap())
+                    .collect();
 
                 match rng.choose(&obstacles) {
                     Some(obstacle) => obstacle.clone(),
-                    None           => String::from("empty")
+                    None => String::from("empty"),
                 }
-            },
-            _ => String::from("empty")
+            }
+            _ => String::from("empty"),
         };
 
         Some(Tile {
@@ -102,22 +96,18 @@ impl Tile {
             visible: false,
             curiosity_checked: false,
             search_text: message,
-            icon: tile_image
+            icon: tile_image,
         })
     }
 
-    pub fn init_curio<T: Rng>
-        (end_type: EndType, rng: &mut T) -> Option<Tile>
-    {
-        let scene: String = String::from(
-            match end_type {
-                EndType::Children => "children",
-                EndType::Body     => "body",
-                EndType::Lair     => "lair",
-                EndType::Item     => "item",
-                EndType::Rest     => "rest"
-            }
-        );
+    pub fn init_curio(end_type: EndType) -> Option<Tile> {
+        let scene: String = String::from(match end_type {
+            EndType::Children => "children",
+            EndType::Body => "body",
+            EndType::Lair => "lair",
+            EndType::Item => "item",
+            EndType::Rest => "rest",
+        });
 
         Some(Tile {
             ttype: TileType::Curiosity,
@@ -125,7 +115,7 @@ impl Tile {
             visible: false,
             curiosity_checked: false,
             search_text: scene,
-            icon: String::from("floor.png")
+            icon: String::from("floor.png"),
         })
     }
 }
@@ -136,7 +126,7 @@ impl Tile {
 struct Card {
     // Row of columns!!!
     // tiles[x][y]
-    tiles: Vec<Vec<Tile>>
+    tiles: Vec<Vec<Tile>>,
 }
 impl Card {
     pub fn new(id: i64, db_conn: &Connection) -> Result<Card, ()> {
@@ -145,11 +135,10 @@ impl Card {
             DB_TABLE_W_CARDS,
             DB_TABLE_W_CARDS_COLUMN,
             id,
-            true                    // Read-Only
+            true, // Read-Only
         ) {
-            let mut tiles_string = String::with_capacity(
-                tiles_blob.size() as usize
-            );
+            let mut tiles_string =
+                String::with_capacity(tiles_blob.size() as usize);
             if let Ok(_) = tiles_blob.read_to_string(&mut tiles_string) {
                 let card_side: usize = tiles_string.lines().count();
 
@@ -169,10 +158,7 @@ impl Card {
                 }
 
                 let mut random_number_generator = StdRng::new()
-                    .expect(
-                        "Failed to read randomness from operating system."
-                    )
-                ;
+                    .expect("Failed to read randomness from operating system.");
 
                 let mut card = Card {
                     // Row of columns
@@ -188,17 +174,17 @@ impl Card {
                             '#' => Tile::init_regular(
                                 TileType::Wall,
                                 db_conn,
-                                &mut random_number_generator
+                                &mut random_number_generator,
                             ).unwrap(),
                             '_' => Tile::init_regular(
                                 TileType::Floor,
                                 db_conn,
-                                &mut random_number_generator
+                                &mut random_number_generator,
                             ).unwrap(),
                             _ => Tile::init_regular(
                                 TileType::Wall,
                                 db_conn,
-                                &mut random_number_generator
+                                &mut random_number_generator,
                             ).unwrap(),
                         };
                         card.tiles[x].push(tile);
@@ -226,14 +212,12 @@ pub struct Map {
 }
 impl Map {
     //{{{ public
-    pub fn init () -> Result<Map, u8> {
-        let mut fields = init_cards().expect(
-            "Failed to init cards."
-        );
+    pub fn init() -> Result<Map, u8> {
+        let fields = init_cards().expect("Failed to init cards.");
 
         let tries_max: u8 = match get_setting("map_max_tries") {
             Some(value) => value,
-            None        => 100
+            None => 100,
         };
 
         let seed: usize = generate_seed();
@@ -264,24 +248,26 @@ impl Map {
 
     //{{{ update
     pub fn update(&mut self, player: &Player) {
-        let start_x = match player.x.checked_sub(
-            player.get_view_distance() as usize
-        ) {
-            Some(x) => x,
-            None    => 0
-        };
-        let start_y = match player.y.checked_sub(
-            player.get_view_distance() as usize
-        ) {
-            Some(y) => y,
-            None    => 0
-        };
+        let start_x =
+            match player.x.checked_sub(player.get_view_distance() as usize) {
+                Some(x) => x,
+                None => 0,
+            };
+        let start_y =
+            match player.y.checked_sub(player.get_view_distance() as usize) {
+                Some(y) => y,
+                None => 0,
+            };
 
         let mut end_x = player.x + player.get_view_distance() as usize;
         let mut end_y = player.y + player.get_view_distance() as usize;
         let map_side = self.tiles.len();
-        if (end_x > map_side) {end_x = map_side};
-        if (end_y > map_side) {end_y = map_side};
+        if end_x > map_side {
+            end_x = map_side
+        };
+        if end_y > map_side {
+            end_y = map_side
+        };
 
         for x in start_x..end_x {
             for y in start_y..end_y {
@@ -292,18 +278,19 @@ impl Map {
     //}}}
 
     //{{{ neighbours
-    pub fn get_neighbours(&self, location: &(usize, usize))
-        -> Vec<((usize, usize), u8)>
-    {
+    pub fn get_neighbours(
+        &self,
+        location: &(usize, usize),
+    ) -> Vec<((usize, usize), u8)> {
         let max_coord = self.tiles.len();
         let &(lx, ly) = location;
         let min_x = match lx.checked_sub(1) {
             Some(x) => x,
-            None    => 0
+            None => 0,
         };
         let min_y = match ly.checked_sub(1) {
             Some(y) => y,
-            None    => 0
+            None => 0,
         };
         let max_x = (lx + 2).min(max_coord);
         let max_y = (ly + 2).min(max_coord);
@@ -328,9 +315,11 @@ impl Map {
     //}}}
 
     //{{{ get_distance
-    pub fn get_distance(&self, start: &(usize, usize), end: &(usize, usize))
-        -> u8
-    {
+    pub fn get_distance(
+        &self,
+        start: &(usize, usize),
+        end: &(usize, usize),
+    ) -> u8 {
         let dist_x = (start.0).max(end.0) - (start.0).min(end.0);
         let dist_y = (start.1).max(end.1) - (start.1).min(end.1);
         ((dist_x.pow(2) + dist_y.pow(2)) as f32).sqrt().ceil() as u8
@@ -338,24 +327,23 @@ impl Map {
     //}}}
 
     //{{{ get_path_distance
-    pub fn get_path_distance
-        (&self, start: &(usize, usize), end: &(usize, usize))
-        -> Option<u8>
-    {
+    pub fn get_path_distance(
+        &self,
+        start: &(usize, usize),
+        end: &(usize, usize),
+    ) -> Option<u8> {
         let maybe_path = astar(
             start,
             |location| {
                 let mut neighbours = self.get_neighbours(location);
-                neighbours.retain(
-                    |loc| {
-                        let &((x, y), _) = loc;
-                        self.tiles[x][y].passable
-                    }
-                );
+                neighbours.retain(|loc| {
+                    let &((x, y), _) = loc;
+                    self.tiles[x][y].passable
+                });
                 neighbours
             },
             |location| self.get_distance(location, end),
-            |location| *location == *end
+            |location| *location == *end,
         );
 
         maybe_path.map(|(_path, cost)| cost)
@@ -363,12 +351,14 @@ impl Map {
     //}}}
 
     //{{{ reachable?
-    pub fn reachable(&self, start: &(usize, usize), end: &(usize, usize))
-        -> bool
-    {
+    pub fn reachable(
+        &self,
+        start: &(usize, usize),
+        end: &(usize, usize),
+    ) -> bool {
         match self.get_path_distance(start, end) {
             Some(_) => true,
-            None    => false,
+            None => false,
         }
     }
     //}}}
@@ -378,8 +368,10 @@ impl Map {
         let new_mark = (x, y);
         let mark_index = self.marks.binary_search(&new_mark);
         match mark_index {
-            Ok(i) => {self.marks.remove(i);},
-            Err(i) => self.marks.insert(i, new_mark)
+            Ok(i) => {
+                self.marks.remove(i);
+            }
+            Err(i) => self.marks.insert(i, new_mark),
         }
     }
     //}}}
@@ -388,8 +380,7 @@ impl Map {
 
     //{{{ add_obstacles
     fn add_obstacles(&mut self) {
-        let mut rng = StdRng::new()
-            .expect("Failed to initialize randomness");
+        let mut rng = StdRng::new().expect("Failed to initialize randomness");
 
         let mut possible_locations: Vec<(usize, usize)> = Vec::new();
         let map_side = self.tiles.len();
@@ -404,7 +395,7 @@ impl Map {
 
         let mut max_obstacles: u8 = match get_setting("obstacle_max") {
             Some(value) => value,
-            None        => 6
+            None => 6,
         };
         max_obstacles = rng.gen_range(1, max_obstacles);
 
@@ -414,13 +405,11 @@ impl Map {
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY;
         let db_conn = Connection::open_with_flags(&db_path, flags).unwrap();
 
-        for obstacle in 0..max_obstacles {
+        for _obstacle in 0..max_obstacles {
             if let Some((x, y)) = possible_locations.pop() {
-                let obstacle_tile = Tile::init_regular(
-                    TileType::Obstacle,
-                    &db_conn,
-                    &mut rng
-                ).unwrap();
+                let obstacle_tile =
+                    Tile::init_regular(TileType::Obstacle, &db_conn, &mut rng)
+                        .unwrap();
                 self.tiles[x][y] = obstacle_tile;
             }
         }
@@ -430,9 +419,8 @@ impl Map {
     //{{{ add_curio
     fn add_curio(&mut self) -> Result<(), &str> {
         // Finding dead ends
-        let mut possible_locations: Vec<(usize, usize)> = Vec::with_capacity(
-            CARDS_MAP_SIDE * 2 * 4
-        );
+        let mut possible_locations: Vec<(usize, usize)> =
+            Vec::with_capacity(CARDS_MAP_SIDE * 2 * 4);
         let max_coord = self.tiles.len();
         for y in 1..max_coord {
             // Top row
@@ -455,9 +443,9 @@ impl Map {
             }
         }
 
-        let mut rng = match StdRng::new(){
+        let mut rng = match StdRng::new() {
             Ok(generator) => generator,
-            Err(_) => return Err("Failed to read system randomness")
+            Err(_) => return Err("Failed to read system randomness"),
         };
 
         // Start location
@@ -469,24 +457,23 @@ impl Map {
         }
 
         let start_location = possible_locations.remove(start_index);
-        self.special_locations.insert(String::from("start"), start_location);
+        self.special_locations
+            .insert(String::from("start"), start_location);
 
         // Only reachable from the starting point should remain
-        possible_locations.retain(
-            |location| self.reachable(&start_location, location)
-        );
-
+        possible_locations
+            .retain(|location| self.reachable(&start_location, location));
 
         let mut ends = [
-            Tile::init_curio(EndType::Children, &mut rng).unwrap(),
-            Tile::init_curio(EndType::Lair, &mut rng).unwrap(),
-            Tile::init_curio(EndType::Body, &mut rng).unwrap(),
-            Tile::init_curio(EndType::Item, &mut rng).unwrap(),
-            Tile::init_curio(EndType::Rest, &mut rng).unwrap()
+            Tile::init_curio(EndType::Children).unwrap(),
+            Tile::init_curio(EndType::Lair).unwrap(),
+            Tile::init_curio(EndType::Body).unwrap(),
+            Tile::init_curio(EndType::Item).unwrap(),
+            Tile::init_curio(EndType::Rest).unwrap(),
         ];
 
         if possible_locations.len() < ends.len() {
-            return Err("Not enough reachable locations")
+            return Err("Not enough reachable locations");
         }
 
         rng.shuffle(&mut possible_locations);
@@ -494,7 +481,8 @@ impl Map {
 
         for (&(x, y), end) in possible_locations.iter().zip(ends.iter()) {
             self.tiles[x][y] = end.clone();
-            self.special_locations.insert(end.search_text.clone(), (x, y));
+            self.special_locations
+                .insert(end.search_text.clone(), (x, y));
         }
 
         // Closing the breaches
@@ -519,14 +507,9 @@ impl Map {
 /*
  * Basic initialization of cards is handled by this function
  */
-fn init_cards //{{{
-    () -> Result<Vec<Card>, ()>
-{
+fn init_cards() -> Result<Vec<Card>, ()> {
     // Generic query for retrieving rowids of cards
-    let query = String::from("select rowid from ")
-        + DB_TABLE_W_CARDS
-        + ";"
-    ;
+    let query = String::from("select rowid from ") + DB_TABLE_W_CARDS + ";";
 
     let mut db_path = PathBuf::from(".");
     db_path.push(DB_FILENAME);
@@ -537,22 +520,21 @@ fn init_cards //{{{
             match db_connection.prepare(&query) {
                 Ok(mut query_statement) => {
                     // Retrieving cards
-                    let field_cards: Vec<Card> = query_statement.query_map(
-                        &[],
-                        |row| {
+                    let field_cards: Vec<Card> = query_statement
+                        .query_map(&[], |row| {
                             let rowid: i64 = row.get(0);
                             Card::new(rowid, &db_connection).unwrap()
-                        }
-                    ).unwrap().map(
-                        |row| row.unwrap()
-                    ).collect();
+                        })
+                        .unwrap()
+                        .map(|row| row.unwrap())
+                        .collect();
 
                     Ok(field_cards)
-                },
-                Err(_) => return Err(())
+                }
+                Err(_) => return Err(()),
             }
-        },
-        Err(_) => return Err(())
+        }
+        Err(_) => return Err(()),
     }
 }
 //}}}
@@ -560,16 +542,14 @@ fn init_cards //{{{
 /*
  * This function generates random field of cards
  */
-fn generate_field<'a, S, T: SeedableRng<S>> //{{{
-    (fields: &Vec<Card>, random_number_generator: &'a mut T) -> Vec<Vec<Card>>
-{
+fn generate_field<'a, S, T: SeedableRng<S>>(
+    fields: &Vec<Card>,
+    random_number_generator: &'a mut T,
+) -> Vec<Vec<Card>> {
     let mut mut_fields = fields.clone();
     random_number_generator.shuffle(&mut mut_fields);
 
-    // Ends makes a "border" of width equal to 1 card around fields
-    // UPD: we do not need such border
     let cardfield_side: usize = CARDS_MAP_SIDE;
-    let end_index: usize = cardfield_side - 1;
 
     // Row of columns
     let mut cardfield: Vec<Vec<Card>> = Vec::with_capacity(cardfield_side);
@@ -580,7 +560,7 @@ fn generate_field<'a, S, T: SeedableRng<S>> //{{{
         cardfield.push(Vec::with_capacity(cardfield_side));
 
         // Inserting cards
-        for y in 0..cardfield_side {
+        for _y in 0..cardfield_side {
             if let Some(field) = mut_fields.pop() {
                 cardfield[x].push(field)
             }
@@ -595,12 +575,7 @@ fn generate_field<'a, S, T: SeedableRng<S>> //{{{
  * This funciton takes field of cards
  * and translates it into the game map
  */
-fn generate_map //{{{
-(
-    cards_field: &Vec<Vec<Card>>
-)
--> Vec<Vec<Tile>>
-{
+fn generate_map(cards_field: &Vec<Vec<Card>>) -> Vec<Vec<Tile>> {
     // Cards are square and equal. This is a must.
     let corner_card = &cards_field[0][0];
     let card_side = corner_card.tiles.len();
