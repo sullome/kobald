@@ -1,7 +1,7 @@
 [package]
 name = "sevend"
-version = "0.1.0"
-authors = ["Sullome <sullome@yandex.com>"]
+version = "1.0.0"
+authors = ["Constantine Farrahov <sullome@yandex.com>"]
 build = "build.rs"
 
 [dependencies]
