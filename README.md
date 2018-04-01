@@ -3,13 +3,13 @@ This project started as a submission for 7DRL 2018 challenge. However, I quickly
 
 The project made in Rust and SDL2. For data management SQLite 3 was used
 
-**Programming:** Constantine Farrahov
+**Programming:** [Constantine Farrahov](https://github.com/sullome)
 
 **Game Design:** Vita
 
 **Original texts:** Vita
 
-**English texts:** Constantine Farrahov
+**English texts:** [Constantine Farrahov](https://github.com/sullome)
 
 **Textures:** Vita
 
