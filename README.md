@@ -3,8 +3,16 @@ This project started as a submission for 7DRL 2018 challenge. However, I quickly
 
 The project made in Rust and SDL2. For data management SQLite 3 was used
 
+**Programming:** Constantine Farrahov
+**Game Design:** Vita
+**Original texts:** Vita
+**English texts:** Constantine Farrahov
+**Textures:** Vita
+**Sounds:** Vita
+**That one CC BY v4.0 `la_femme.mp3` file:** Matthew McGilvery
+
 ## Installation
-First of all, obtain files for your platform: https://github.com/sullome/kobald/releases/tag/v1.0.0
+First of all, [obtain files for your platform](https://github.com/sullome/kobald/releases/tag/v1.0.0).
 ### Linux
 You will need next libraries installed:
 * SDL2 ≥ v2.0.8
